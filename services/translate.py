@@ -3,7 +3,7 @@ from flask import jsonify
 
 def translate_to_english(input_text):
   prompt = f"""
-    You are a translation model. Translate the following text into English only if it is in Spanish.
+    You are a translation model. Translate the following text into English.
 
     If the text is in Spanish, provide the English translation.
     If the text is not in Spanish, respond: "Translation not required as the text is not in Spanish."

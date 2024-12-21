@@ -25,7 +25,11 @@ def phonetic_transcription(input_text):
       temperature=0.2
     )
     json_response = response['choices'][0]['message']['content'].strip()
-    cleaned_transcription = json_response.split("\n")[0].strip('"')
+    # Clean and extract the transcription
+    if "->" in json_response:
+      cleaned_transcription = json_response.split("->")[1].strip()
+    else:
+      cleaned_transcription = json_response
 
     return jsonify({'phonetic_transcription': cleaned_transcription})
   except Exception as e:

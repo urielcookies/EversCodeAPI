@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import json
 import openai
 from services.detect_language import detect_language
@@ -7,9 +7,13 @@ from services.translate import translate_to_english
 from services.grammar_check import grammar_check
 from services.phonetic_transcription import phonetic_transcription
 from utils.auth import require_transcribe_api_key 
+from google.cloud import texttospeech
+from io import BytesIO
 
 app = Flask(__name__)
 openai.api_key = os.getenv("OPENAI_API_KEY")
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./eversvoz-a6e9e2b3bfe7.json"
+
 MAX_LENGTH = 250
 
 @app.route('/transcribe', methods=['POST'])
@@ -59,6 +63,49 @@ def transcribe():
     json.dumps(response_data, ensure_ascii=False),
     mimetype='application/json'
   )
+
+@app.route('/synthesize', methods=['POST'])
+def synthesize_speech():
+  # Get the text and settings from the request body
+  data = request.json
+  text = data.get('text', 'Hello, world!')
+  language_code = data.get('language_code', 'en-US')  # Default to US English
+  gender = data.get('gender', 'NEUTRAL')  # Default to neutral voice
+  speaking_rate = data.get('speaking_rate', 1.0)  # Default to normal speed
+  pitch = data.get('pitch', 0.0)  # Default to normal pitch
+  volume_gain_db = data.get('volume_gain_db', 0.0)  # Default to normal volume
+
+  # Initialize the Text-to-Speech client
+  client = texttospeech.TextToSpeechClient()
+
+  # Set the text input
+  synthesis_input = texttospeech.SynthesisInput(text=text)
+
+  # Set voice parameters
+  ssml_gender = getattr(texttospeech.SsmlVoiceGender, gender.upper(), texttospeech.SsmlVoiceGender.NEUTRAL)
+  voice = texttospeech.VoiceSelectionParams(
+    language_code=language_code,
+    ssml_gender=ssml_gender
+  )
+
+  # Set audio configuration
+  audio_config = texttospeech.AudioConfig(
+    audio_encoding=texttospeech.AudioEncoding.MP3,
+    speaking_rate=speaking_rate,
+    pitch=pitch,
+    volume_gain_db=volume_gain_db
+  )
+
+  # Generate the audio
+  response = client.synthesize_speech(
+    input=synthesis_input, voice=voice, audio_config=audio_config
+  )
+
+  # Use BytesIO to handle audio content in memory
+  audio_file = BytesIO(response.audio_content)
+
+  # Send the audio file to the client
+  return send_file(audio_file, as_attachment=False, mimetype='audio/mpeg')
 
 if __name__ == '__main__':
   app.run(debug=True, host='0.0.0.0', port=5001)
