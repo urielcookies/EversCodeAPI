@@ -3,14 +3,10 @@ from flask import jsonify
 
 def detect_language(input_text):
   prompt = f"""
-    You are a language detection model. Analyze the following text and determine the primary language it is written in.
-
-    - If the text is entirely in Spanish, respond: "The input is in Spanish."
-    - If the text is entirely in English, respond: "The input is in English."
-    - If the text contains a mix of Spanish and English or words from another language, respond: "unsupported."
-    - If a word appears misspelled, evaluate its context and decide based on the rest of the text.
-
-    Do not make any assumptions. Base your response solely on the input text provided below.
+    Analyze this text and respond with exactly one word:
+    - "spanish" if the text is in Spanish
+    - "english" if the text is in English
+    - "unsupported" if the text is in another language or mixes languages
 
     Text: {input_text}
   """
@@ -19,19 +15,15 @@ def detect_language(input_text):
     response = openai.ChatCompletion.create(
       model="gpt-4o-mini",
       messages=[{"role": "system", "content": prompt}],
-      max_tokens=300,
+      max_tokens=50,  # Reduced since we only need one word
       temperature=0.2
     )
-    json_response = response['choices'][0]['message']['content'].strip().lower()
-    if "spanish" in json_response:
-      detected_language = "spanish"
-    elif "english" in json_response:
-      detected_language = "english"
-    elif "unsupported" in json_response:
-      detected_language = "unsupported"
-    else:
+    detected_language = response['choices'][0]['message']['content'].strip().lower()
+    
+    # Only accept the three valid responses
+    if detected_language not in ["spanish", "english", "unsupported"]:
       detected_language = "error"
-
+        
     return jsonify({'detected_lang': detected_language})
   except Exception as e:
     return jsonify({'error': str(e)}), 500
