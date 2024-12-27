@@ -5,7 +5,7 @@ import openai
 from services.detect_language import detect_language
 from services.translate import translate_to_english
 from services.grammar_check import grammar_check
-from services.phonetic_transcription import phonetic_transcription
+# from services.phonetic_transcription import phonetic_transcription
 from services.phonetic_explanation import phonetic_explanation
 from utils.auth import require_transcribe_api_key 
 from google.cloud import texttospeech
@@ -51,8 +51,8 @@ def transcribe():
     translate_data = json.loads(translate_response.get_data(as_text=True))
     english_phrase = translate_data.get("translation", "")
 
-  phonetic_response = phonetic_transcription(english_phrase)
-  phonetic_data = json.loads(phonetic_response.get_data(as_text=True))
+  # phonetic_response = phonetic_transcription(english_phrase)
+  # phonetic_data = json.loads(phonetic_response.get_data(as_text=True))
 
   phonetic_explanation_response = phonetic_explanation(english_phrase)
   phonetic_explanation_data = json.loads(phonetic_explanation_response.get_data(as_text=True))
@@ -60,7 +60,7 @@ def transcribe():
   response_data = {
     "detected_lang": detected_lang,
     "english_phrase": english_phrase,
-    "phonetic_transcription": phonetic_data.get("phonetic_transcription", ""),
+    # "phonetic_transcription": phonetic_data.get("phonetic_transcription", ""),
     "phonetic_explanation": phonetic_explanation_data.get("phonetic_explanation", "")
   }
 
