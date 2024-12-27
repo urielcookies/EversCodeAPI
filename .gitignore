@@ -1,4 +1,5 @@
 .venv
 .env
-.__pycache__
+.__pycache__/
+*.pyc
 eversvoz-a6e9e2b3bfe7.json
