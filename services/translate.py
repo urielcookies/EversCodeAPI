@@ -5,6 +5,7 @@ def translate_to_english(input_text):
   prompt = f"""
     Translate this Spanish word or phrase to English. 
     Respond with ONLY the English translation - no additional words or explanations.
+    If there are numbers convert them into words. Ex 157 -> one hundred and fifty seven.
     Do not include quotes, periods, or any other punctuation.
     Example input: casa
     Example output: house

@@ -8,6 +8,7 @@ def grammar_check(input_text):
     - If the text is in English and contains grammatical or spelling errors, provide the corrected version of the text only. Do not include any additional text or explanations.
     - If the text is already correct, respond: "The text is grammatically correct."
     - If the text is not in English, respond: "Grammar check not required as the text is not in English."
+    - If there are numbers convert them into words. Ex 157 -> one hundred and fifty seven
 
     Text: {input_text}
   """
