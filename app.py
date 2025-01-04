@@ -22,24 +22,20 @@ MAX_LENGTH = 250
 def transcribe():
   data = request.json
 
-  if not data or 'text' not in data or 'lang' not in data:
-    return jsonify({"error": "Please provide 'text' and 'lang' in the request body"}), 400
+  if not data or 'text' not in data:
+    return jsonify({"error": "Por favor, proporcione 'texto' en el cuerpo de la solicitud"}), 400
 
-  client_lang = data["lang"]
   input_text = data["text"]
 
   if not input_text or len(input_text) > MAX_LENGTH:
-    return jsonify({"error": f"Text length exceeds {MAX_LENGTH} characters or is empty"}), 400
-
-  if client_lang not in ['es', 'en']:
-    return jsonify({"error": "Invalid value for 'lang'. Allowed values are 'es' or 'en'"}), 400
+    return jsonify({"error": f"El texto excede {MAX_LENGTH} caracteres o está vacío"}), 400
 
   detected_lang_response = detect_language(input_text)
   detected_lang_data = json.loads(detected_lang_response.get_data(as_text=True))
   detected_lang = detected_lang_data.get("detected_lang", "")
 
   if detected_lang == 'unsupported':
-    return jsonify({"error": "Language Needs to be in English or Spanish"}), 400
+    return jsonify({"error": "El idioma debe estar en inglés o español"}), 400
 
   english_phrase = ''
   if detected_lang == 'english':
@@ -59,6 +55,7 @@ def transcribe():
 
   response_data = {
     "detected_lang": detected_lang,
+    "user_input": input_text if detected_lang == 'spanish' else None,
     "english_phrase": english_phrase,
     # "phonetic_transcription": phonetic_data.get("phonetic_transcription", ""),
     "phonetic_explanation": phonetic_explanation_data.get("phonetic_explanation", "")
