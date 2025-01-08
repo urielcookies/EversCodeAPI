@@ -13,6 +13,7 @@ def phonetic_explanation(input_text):
     - Evita incluir prefijos como "Claro!" o "Aquí está la transcripción."
     - NO agregar resúmenes ni conclusiones al final
 
+    La respuesta debe ser únicamente la transcripción fonética y la explicación de las palabras en el texto proporcionado, sin agregar palabras adicionales ni cambiar el formato estrictamente definido.
     La respuesta debe seguir ESTRICTAMENTE este formato para cada palabra:
 
     Ejemplo:
@@ -37,7 +38,7 @@ def phonetic_explanation(input_text):
     "Today" (tudei)
     - "tudei". La "t" es fuerte, como en "tapa", la "u" suena como la "u" en español, y "day" es igual a "dei" como en "day" explicado arriba.
 
-    Texto: {input_text}
+    Texto: {input_text} (solo transcribe las palabras proporcionadas, nada más).
   """
 
   try:
