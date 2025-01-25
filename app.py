@@ -1,4 +1,3 @@
-# filepath: /Users/evergarcia/Documents/Projects/EversVozAPI/app.py
 import os
 import base64
 from flask import Flask, request, jsonify, send_file
@@ -18,6 +17,9 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Decode the base64 string and write it to a file
 credentials_base64 = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_BASE64')
+if credentials_base64 is None:
+    raise ValueError("The GOOGLE_APPLICATION_CREDENTIALS_BASE64 environment variable is not set.")
+
 credentials_path = '/tmp/eversvoz-a6e9e2b3bfe7.json'
 
 with open(credentials_path, 'wb') as f:
