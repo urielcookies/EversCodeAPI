@@ -15,15 +15,16 @@ from io import BytesIO
 app = Flask(__name__)
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Decode the base64 string and write it to a file
+# Check if running in a local environment
 credentials_base64 = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_BASE64')
-if credentials_base64 is None:
-  raise ValueError("The GOOGLE_APPLICATION_CREDENTIALS_BASE64 environment variable is not set.")
-
-credentials_path = '/tmp/eversvoz-a6e9e2b3bfe7.json'
-
-with open(credentials_path, 'wb') as f:
-  f.write(base64.b64decode(credentials_base64))
+if credentials_base64:
+  # Decode the base64 string and write it to a file
+  credentials_path = '/tmp/eversvoz-a6e9e2b3bfe7.json'
+  with open(credentials_path, 'wb') as f:
+      f.write(base64.b64decode(credentials_base64))
+else:
+  # Use the local JSON file directly
+  credentials_path = './eversvoz-a6e9e2b3bfe7.json'
 
 # Set the environment variable to the path of the credentials file
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
