@@ -7,7 +7,6 @@ def grammar_check(input_text):
 
     - If the text is in English and contains grammatical or spelling errors, provide the corrected version of the text only. Do not include any additional text or explanations.
     - If the text is already correct, respond: "The text is grammatically correct."
-    - If the text is not in English, respond: "Grammar check not required as the text is not in English."
     - If there are numbers convert them into words. Ex 157 -> one hundred and fifty seven
 
     Text: {input_text}
@@ -15,18 +14,18 @@ def grammar_check(input_text):
 
   try:
     response = openai.ChatCompletion.create(
-      model="gpt-4o-mini",
+      model="gpt-4",
       messages=[{"role": "system", "content": prompt}],
       max_tokens=300,
       temperature=0.2
-    )
+  )
     json_response = response['choices'][0]['message']['content'].strip()
 
+    # If the text is grammatically correct, return the original text, else return the corrected text
     if json_response == "The text is grammatically correct.":
-      corrected_text = input_text
+      return jsonify({'grammar_check': input_text})
     else:
-      corrected_text = json_response
+      return jsonify({'grammar_check': json_response})
 
-    return jsonify({'grammar_check': corrected_text})
   except Exception as e:
     return jsonify({'error': str(e)}), 500
