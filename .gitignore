@@ -2,4 +2,6 @@
 .env
 .__pycache__/
 *.pyc
-eversvoz-a6e9e2b3bfe7.json
+# eversvoz-a6e9e2b3bfe7.json
+apps/EversVozAPI/eversvoz-a6e9e2b3bfe7.json
+apps/EversVozAPI/eversvoz-a6e9e2b3bfe7.json.base64
