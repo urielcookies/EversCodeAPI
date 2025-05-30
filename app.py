@@ -1,8 +1,9 @@
+import os
 from flask import Flask
+from flask_cors import CORS
 from apps.Test import test_bp
 from apps.EversVozAPI import eversvoz_bp
 from apps.PortfolioForm import portfoliocontactform_bp
-from flask_cors import CORS
 
 app = Flask(__name__)
 
