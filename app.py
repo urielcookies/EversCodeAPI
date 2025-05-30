@@ -5,7 +5,9 @@ from apps.PortfolioForm import portfoliocontactform_bp
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
+
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+CORS(app, origins=allowed_origins, supports_credentials=True)
 
 app.register_blueprint(test_bp)
 app.register_blueprint(eversvoz_bp)
