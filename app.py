@@ -7,6 +7,7 @@ from apps.PortfolioForm import portfoliocontactform_bp
 
 app = Flask(__name__)
 
+app.url_map.strict_slashes = False 
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 CORS(app, origins=allowed_origins, supports_credentials=True)
 
