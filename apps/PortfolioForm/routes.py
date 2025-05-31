@@ -52,7 +52,7 @@ def handle_form():
     # Check for recent submissions from this IP
     now = datetime.utcnow()
     twenty_four_hours_ago = (now - timedelta(hours=24)).isoformat()
-    filter_expr = f'ip_address = "{ip_address}" && created > "{twenty_four_hours_ago}"'
+    filter_expr = f'(ip_address = "{ip_address}" || email = "{email}") && created > "{twenty_four_hours_ago}"'
     recent = pb_client.collection("portfolio_contactform").get_list(1, 1, {"filter": filter_expr})
     if recent.total_items > 0:
         html = f"""
