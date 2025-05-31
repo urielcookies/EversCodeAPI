@@ -55,7 +55,15 @@ def handle_form():
     filter_expr = f'ip_address = "{ip_address}" && created > "{twenty_four_hours_ago}"'
     recent = pb_client.collection("portfolio_contactform").get_list(1, 1, {"filter": filter_expr})
     if recent.total_items > 0:
-        abort(429, "Too many submissions. Try again later.")
+        html = f"""
+            <section class="error-section">
+                <div style="max-width: 600px; margin: auto; padding: 30px; background: #2a2a2a; border: 1px solid #ff4d4d; border-radius: 8px; text-align: center;">
+                    <h2 style="color: #ff6b6b;">Too Many Requests</h2>
+                    <p style="color: #cccccc;">You <strong>{name}</strong> have submitted the form already so take a break. Please wait 24 hours before trying again.</p>
+                </div>
+            </section>
+            """
+        return render_template_string(html)
 
     # Submit to PocketBase and get the created record
     record = pb_client.collection("portfolio_contactform").create({
