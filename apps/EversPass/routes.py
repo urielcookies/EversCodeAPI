@@ -1,5 +1,138 @@
 from apps.EversPass import everspass_bp
+from apps.shared_pocketbase.pocketbase_client import get_pocketbase_client
+from datetime import datetime, timedelta
+from flask import request, jsonify
+from pocketbase.utils import ClientResponseError
+
+
+pb_client = get_pocketbase_client()
 
 @everspass_bp.route('/create-session', methods=['POST'])
 def createSession():
-    return "Hello from EversPass!"
+    data = request.get_json()
+    device_id = data.get('device_id')
+    session_name = data.get('name')
+
+    if not device_id or not session_name:
+        return jsonify({"error": "Missing device_id or name"}), 400
+
+    try:
+        record = pb_client.collection("everspass_sessions").create({
+            "device_id": device_id,
+            "name": session_name,
+            "expires_at": (datetime.utcnow() + timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S.%fZ'),
+            "status": "active",
+        })
+
+        record_data = {
+            'id': record.id,
+            'created': record.created,
+            'updated': record.updated,
+            'device_id': record.device_id,
+            'name': record.name,
+            'expires_at': record.expires_at,
+            'status': record.status,
+        }
+
+        return jsonify(record_data)
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
+@everspass_bp.route('/load-session', methods=['GET'])
+def loadSession():
+    """
+    Loads sessions for a given device_id.
+    The device_id is expected as a URL query parameter.
+    Example: GET /load-session?deviceId=some-unique-device-id
+    """
+    device_id = request.args.get('deviceId')
+
+    if not device_id:
+        return jsonify({"error": "The 'deviceId' query parameter is required."}), 400
+
+    try:
+        records = pb_client.collection("everspass_sessions").get_list(
+            page=1,
+            per_page=10,
+            query_params={
+                "filter": f'device_id = "{device_id}"'
+            }
+        )
+
+        # The result from get_list is a ListResult object which contains items
+        # We need to serialize each Record object in the items list
+        sessions_data = []
+        for record in records.items:
+            sessions_data.append({
+                'id': record.id,
+                'created': record.created,
+                'updated': record.updated,
+                'device_id': record.device_id,
+                'name': record.name,
+                'expires_at': record.expires_at,
+                'status': record.status,
+            })
+
+        return jsonify(sessions_data)
+
+    except ClientResponseError as e:
+        print(f"PocketBase error: {e}")
+        return jsonify({"error": str(e), "status": e.status}), e.status
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
+@everspass_bp.route('/delete-session/<session_id>', methods=['DELETE'])
+def deleteSession(session_id):
+    """
+    Deletes a specific session by its ID.
+    The session_id is expected as part of the URL path.
+    Example: DELETE /delete-session/a1b2c3d4e5f6g7h
+    """
+    if not session_id:
+        return jsonify({"error": "Session ID is required."}), 400
+
+    try:
+        pb_client.collection("everspass_sessions").delete(session_id)
+        return jsonify({"message": f"Session with ID '{session_id}' deleted successfully."}), 200
+
+    except ClientResponseError as e:
+        if e.status == 404:
+            return jsonify({"error": "Session not found."}), 404
+        print(f"PocketBase error: {e}")
+        return jsonify({"error": str(e), "status": e.status}), e.status
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
+@everspass_bp.route('/check-deviceid-exists/<device_id>', methods=['GET'])
+def checkSessionExists(device_id):
+    """
+    Checks if any sessions exist for a given device_id.
+    Example: GET /sessions-exist-for-device/some-unique-device-id
+    """
+    if not device_id:
+        return jsonify({"error": "Device ID is required."}), 400
+
+    try:
+        result = pb_client.collection("everspass_sessions").get_list(
+            page=1, 
+            per_page=1, 
+            query_params={
+                "filter": f'device_id = "{device_id}"'
+            }
+        )
+
+        if result.total_items > 0:
+            return jsonify({"exists": True, "device_id": device_id}), 200
+        else:
+            return jsonify({"exists": False, "device_id": device_id}), 200
+
+    except ClientResponseError as e:
+        print(f"PocketBase error: {e}")
+        return jsonify({"error": str(e), "status": e.status}), e.status
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
