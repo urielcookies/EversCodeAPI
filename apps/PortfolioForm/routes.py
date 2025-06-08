@@ -2,33 +2,18 @@ import os
 from flask import request, render_template_string, abort
 from apps.PortfolioForm import portfoliocontactform_bp
 from datetime import datetime, timedelta
-from pocketbase import PocketBase
-from pocketbase.utils import ClientResponseError
 from dateutil import parser
 import resend
 from dotenv import load_dotenv
+from apps.shared_pocketbase.pocketbase_client import get_pocketbase_client
+from apps.shared_resend.resend_client import send_contact_form_email
 
 load_dotenv()
-# Load env variables
-POCKETBASE_API = os.getenv("POCKETBASE_API")
-POCKETBASE_SUPERUSER_EMAIL = os.getenv("POCKETBASE_SUPERUSER_EMAIL")
-POCKETBASE_SUPERUSER_PASSWORD = os.getenv("POCKETBASE_SUPERUSER_PASSWORD")
-COLLECTION_ID_SUPERUSERS = os.getenv("COLLECTION_ID_SUPERUSERS")
-RESEND_API = os.getenv("RESEND_API")
 
-# Initialize Resend - Based on the available attributes, we use it directly
+RESEND_API = os.getenv("RESEND_API")
 resend.api_key = RESEND_API  # Set the API key globally
 
-# Initialize client and login once
-pb_client = PocketBase(POCKETBASE_API)
-try:
-    auth_data = pb_client.collection(COLLECTION_ID_SUPERUSERS).auth_with_password(
-        POCKETBASE_SUPERUSER_EMAIL,
-        POCKETBASE_SUPERUSER_PASSWORD
-    )
-except ClientResponseError as e:
-    print(f"Failed to authenticate user from collection ID {COLLECTION_ID_SUPERUSERS}: {e}")  
-
+pb_client = get_pocketbase_client()
 
 @portfoliocontactform_bp.route('/', methods=['POST'])
 def handle_form():
@@ -89,17 +74,12 @@ def handle_form():
         name, email, phone, message, ip_address, created_human
     )
 
-    # Send email with resend - Using the correct API pattern
     try:
-        params = {
-            "from": "noreply@everscode.com",
-            "to": ["evergarcia621@outlook.com"],
-            "subject": "New Contact Form Submission",
-            "html": html_body,
-        }
-        
-        response = resend.Emails.send(params)
-        print(f"Email sent successfully: {response}")
+        send_contact_form_email(
+            to_emails=["evergarcia621@outlook.com"],
+            subject="New Contact Form Submission",
+            html_content=html_body
+        )
     except Exception as e:
         print(f"Failed to send email: {e}")
 
