@@ -1,17 +1,12 @@
 import os
+import resend
 from flask import request, render_template_string, abort
 from apps.PortfolioForm import portfoliocontactform_bp
 from datetime import datetime, timedelta
 from dateutil import parser
-import resend
-from dotenv import load_dotenv
 from apps.shared_pocketbase.pocketbase_client import get_pocketbase_client
 from apps.shared_resend.resend_client import send_contact_form_email
 
-load_dotenv()
-
-RESEND_API = os.getenv("RESEND_API")
-resend.api_key = RESEND_API  # Set the API key globally
 
 pb_client = get_pocketbase_client()
 
