@@ -14,13 +14,19 @@ COLLECTION_ID_SUPERUSERS = os.getenv("COLLECTION_ID_SUPERUSERS")
 pb_client = PocketBase(POCKETBASE_API)
 
 def get_pocketbase_client():
-    if not pb_client.auth_store.is_valid:
-        try:
-            pb_client.collection(COLLECTION_ID_SUPERUSERS).auth_with_password(
-                POCKETBASE_SUPERUSER_EMAIL,
-                POCKETBASE_SUPERUSER_PASSWORD
-            )
-        except ClientResponseError as e:
-            print(f"PocketBase auth failed: {e}")
-            raise
+    pb_client = PocketBase(os.getenv("POCKETBASE_API"))
+
+    # Check if authenticated, fallback on token presence
+    is_authenticated = False
+    if hasattr(pb_client.auth_store, "is_valid"):
+        is_authenticated = pb_client.auth_store.is_valid
+    elif hasattr(pb_client.auth_store, "token"):
+        is_authenticated = bool(pb_client.auth_store.token)
+
+    if not is_authenticated:
+        # perform login or raise error
+        email = os.getenv("POCKETBASE_SUPERUSER_EMAIL")
+        password = os.getenv("POCKETBASE_SUPERUSER_PASSWORD")
+        pb_client.admins.auth_with_password(email, password)
+
     return pb_client
