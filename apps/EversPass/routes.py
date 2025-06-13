@@ -136,3 +136,87 @@ def checkSessionExists(device_id):
     except Exception as e:
         print(f"An error occurred: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
+
+@everspass_bp.route('/check-photosession-exists/<session_id>', methods=['GET'])
+def checkPhotosForSession(session_id):
+    """
+    Checks if any photos exist for a given session_id in the 'everspass_photos' collection.
+    Example: GET /check-photosession-exists/some-unique-session-id
+    """
+    if not session_id:
+        return jsonify({"error": "Session ID is required."}), 400
+
+    try:
+        result = pb_client.collection("everspass_photos").get_list(
+            page=1,
+            per_page=1,
+            query_params={
+                "filter": f'session_id = "{session_id}"'
+            }
+        )
+
+        if result.total_items > 0:
+            return jsonify({"exists": True, "session_id": session_id}), 200
+        else:
+            return jsonify({"exists": False, "session_id": session_id}), 200
+
+    except ClientResponseError as e:
+        print(f"PocketBase error: {e}")
+        return jsonify({"error": str(e), "status": e.status}), e.status
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
+@everspass_bp.route('/sessions/<session_id>/photos', methods=['GET'])
+def get_session_photos(session_id):
+    """
+    Loads all photos associated with a specific session ID.
+    Supports pagination via query parameters.
+    Example: GET /sessions/a1b2c3d4/photos?page=1&perPage=50
+    """
+    if not session_id:
+        return jsonify({"error": "The 'session_id' parameter is required."}), 400
+
+    try:
+        # Get pagination parameters from the request, with sane defaults
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('perPage', 50, type=int)
+
+        # Query the 'everspass_photos' collection
+        photo_records = pb_client.collection("everspass_photos").get_list(
+            page=page,
+            per_page=per_page,
+            query_params={
+                "filter": f'session_id = "{session_id}"',
+                "sort": "-created" # Sort by newest first
+            }
+        )
+        
+        # Serialize the photo data, creating a full URL for each photo
+        photos_data = []
+        for record in photo_records.items:
+            file_url = pb_client.get_file_url(record, record.image_url)
+            photos_data.append({
+                'id': record.id,
+                'url': file_url,
+                'created': record.created,
+                'session_id': record.session_id
+            })
+
+        # Return the list of photos and pagination details
+        return jsonify({
+            "page": photo_records.page,
+            "perPage": photo_records.per_page,
+            "totalPages": photo_records.total_pages,
+            "totalItems": photo_records.total_items,
+            "items": photos_data
+        })
+
+    except ClientResponseError as e:
+        if e.status == 404:
+            return jsonify({"error": "Session or photos not found."}), 404
+        print(f"PocketBase error: {e}")
+        return jsonify({"error": str(e), "status": e.status}), e.status
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
