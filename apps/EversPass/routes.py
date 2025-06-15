@@ -188,7 +188,7 @@ def checkPhotosForSession(session_id):
         print(f"An error occurred: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
 
-@everspass_bp.route('/sessions/<session_id>/photos', methods=['GET'])
+@everspass_bp.route('/photosession/<session_id>/photos', methods=['GET'])
 def get_session_photos(session_id):
     """
     Loads all photos associated with a specific session ID.
