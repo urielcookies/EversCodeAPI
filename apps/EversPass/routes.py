@@ -1,10 +1,12 @@
+import os # Keep if used for general purposes, e.g., os.getenv (though not directly in routes here)
+import requests 
 from apps.EversPass import everspass_bp
 from apps.shared_pocketbase.pocketbase_client import get_pocketbase_client
 from datetime import datetime, timedelta
 from flask import request, jsonify
 from pocketbase.utils import ClientResponseError
 
-
+# Initialize the PocketBase client globally. This handles SDK authentication.
 pb_client = get_pocketbase_client()
 
 @everspass_bp.route('/create-session', methods=['POST'])
@@ -139,8 +141,8 @@ def checkSessionExists(device_id):
 
     try:
         result = pb_client.collection("everspass_sessions").get_list(
-            page=1, 
-            per_page=1, 
+            page=1,
+            per_page=1,
             query_params={
                 "filter": f'device_id = "{device_id}"'
             }
@@ -221,10 +223,10 @@ def get_session_photos(session_id):
                 'id': record.id,
                 'url': file_url,
                 'created': record.created,
-                'session_id': record.session_id
+                'session_id': record.session_id,
+                'originalFilename': getattr(record, 'originalFilename', None)
             })
 
-        # Return the list of photos and pagination details
         return jsonify({
             "page": photo_records.page,
             "perPage": photo_records.per_page,
@@ -240,4 +242,173 @@ def get_session_photos(session_id):
         return jsonify({"error": str(e), "status": e.status}), e.status
     except Exception as e:
         print(f"An error occurred: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
+# This route handles uploading photos, creating a new record for EACH file.
+@everspass_bp.route('/upload-photos/<session_id>', methods=['POST'])
+def upload_photos_to_session(session_id):
+    uploaded_files = request.files.getlist('image')
+    valid_files = [file for file in uploaded_files if file.filename]
+
+    if not session_id:
+        return jsonify({"error": "session Id is required."}), 400
+
+    if not valid_files:
+        return jsonify({"error": "No valid image files provided."}), 400
+
+    successful_uploads = []
+    failed_uploads = []
+    skipped_uploads = []
+    
+    # Get the admin token once for the entire batch
+    # This token is managed by the get_pocketbase_client() function.
+    admin_token = pb_client.auth_store.token
+    if not admin_token:
+        try:
+            pb_client.admins.auth_with_password(
+                os.getenv("POCKETBASE_SUPERUSER_EMAIL"),
+                os.getenv("POCKETBASE_SUPERUSER_PASSWORD")
+            )
+            admin_token = pb_client.auth_store.token
+            if not admin_token:
+                raise Exception("Failed to obtain admin token for file upload batch.")
+        except Exception as e:
+            return jsonify({"error": f"Authentication failed for upload batch: {str(e)}"}), 500
+
+
+    # Process each file individually to create a new record per file
+    for i, file in enumerate(valid_files):
+        filename = file.filename
+        try:
+            existing_records = pb_client.collection("everspass_photos").get_list(
+                page=1,
+                per_page=1,
+                query_params={
+                    "filter": f'session_id = "{session_id}" && originalFilename = "{filename}"'
+                }
+            )
+
+            if existing_records.total_items > 0:
+                # File already exists, skip upload
+                skipped_uploads.append({
+                    "filename": filename,
+                    "reason": "File already exists for this session.",
+                    "record_id": existing_records.items[0].id # Optionally return existing record ID
+                })
+                print(f"Flask: Skipped upload for '{filename}'. Already exists (Record ID: {existing_records.items[0].id}).")
+                continue # Skip to the next file in the loop
+            # --- END NEW CHECK ---
+
+            # Prepare non-file data for the multipart request for THIS file
+            upload_data = {
+                'session_id': session_id,
+                'originalFilename': filename # Use the filename of the current file
+            }
+
+            # Prepare file data for the multipart request for THIS file
+            # 'image_url' must match the File field name in your PocketBase collection
+            upload_files_current = [('image_url', (file.filename, file.stream, file.content_type))]
+
+            # Send the request using requests.post for THIS SINGLE FILE
+            pb_upload_url = f"{os.getenv('POCKETBASE_API')}/api/collections/everspass_photos/records"
+
+            response = requests.post(
+                pb_upload_url,
+                data=upload_data,
+                files=upload_files_current,
+                headers={'Authorization': f'Bearer {admin_token}'},
+                timeout=60
+            )
+
+            response.raise_for_status()
+
+            response_json = response.json()
+            successful_uploads.append({
+                "filename": filename,
+                "record_id": response_json.get("id"),
+                "record_data": response_json
+            })
+
+        except requests.exceptions.HTTPError as errh:
+            error_details = {}
+            try:
+                error_details = errh.response.json()
+            except:
+                error_details = errh.response.text
+            failed_uploads.append({
+                "filename": filename,
+                "error": f"HTTP Error: {errh}",
+                "details": error_details,
+                "status_code": errh.response.status if hasattr(errh.response, 'status') else None
+            })
+            # Decide whether to continue on error or break. For now, continue to process other files.
+            continue
+        except requests.exceptions.RequestException as err:
+            failed_uploads.append({
+                "filename": filename,
+                "error": f"Request Error: {err}",
+                "details": str(err)
+            })
+            print(f"Flask: FAILED to upload '{filename}': {err}")
+            continue
+        except Exception as e:
+            failed_uploads.append({
+                "filename": filename,
+                "error": f"Unexpected Error: {str(e)}",
+                "details": str(e)
+            })
+            print(f"Flask: FAILED to upload '{filename}': {e}")
+            continue
+            
+    response_payload = {
+        "message": "",
+        "total_files_processed": len(valid_files),
+        "successful_uploads_count": len(successful_uploads),
+        "successful_uploads": successful_uploads,
+        "failed_uploads_count": len(failed_uploads),
+        "failed_uploads": failed_uploads,
+        "skipped_uploads_count": len(skipped_uploads), # NEW: count of skipped files
+        "skipped_uploads": skipped_uploads # NEW: list of skipped files
+    }
+
+    if not successful_uploads and not failed_uploads and skipped_uploads:
+        response_payload["message"] = "All files already existed and were skipped."
+        return jsonify(response_payload), 200 # OK for all skipped
+    elif not successful_uploads and failed_uploads:
+        response_payload["message"] = "All *attempted* file uploads failed." # More specific for failed attempts
+        return jsonify(response_payload), 500 # Return 500 if all attempted uploads failed
+    elif failed_uploads or skipped_uploads:
+        response_payload["message"] = f"Batch upload completed with {len(successful_uploads)} successful, {len(failed_uploads)} failed, and {len(skipped_uploads)} skipped files."
+        return jsonify(response_payload), 207 # Multi-Status for mixed results
+    else:
+        response_payload["message"] = f"All {len(successful_uploads)} files uploaded successfully."
+        return jsonify(response_payload), 201 # Created for all successful
+
+@everspass_bp.route('/delete-photo/<photo_id>', methods=['DELETE'])
+def delete_photo(photo_id):
+    """
+    Deletes a specific photo record from the 'everspass_photos' collection by its ID.
+    Example: DELETE /delete-photo/some_photo_id
+    """
+    if not photo_id:
+        return jsonify({"error": "Photo ID is required."}), 400
+
+    try:
+        # Use the pb_client instance to delete the record
+        pb_client.collection("everspass_photos").delete(photo_id)
+        
+        return jsonify({
+            "message": f"Photo with ID '{photo_id}' deleted successfully."
+        }), 200
+
+    except ClientResponseError as e:
+        if e.status == 404:
+            print(f"Flask: Photo not found for ID: {photo_id}")
+            return jsonify({"error": "Photo not found."}), 404
+        print(f"Flask: PocketBase error deleting photo: {e}")
+        error_msg = getattr(e, 'message', str(e))
+        error_data = getattr(e, 'data', {})
+        return jsonify({"error": error_msg, "details": error_data}), e.status
+    except Exception as e:
+        print(f"Flask: An unexpected error occurred while deleting photo: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
