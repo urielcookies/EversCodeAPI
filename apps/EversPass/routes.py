@@ -221,10 +221,10 @@ def get_session_photos(session_id):
             file_url = pb_client.get_file_url(record, record.image_url)
             photos_data.append({
                 'id': record.id,
-                'url': file_url,
+                'image_url': file_url,
                 'created': record.created,
                 'session_id': record.session_id,
-                'originalFilename': getattr(record, 'originalFilename', None)
+                'originalFilename': record.original_filename,
             })
 
         return jsonify({
