@@ -5,6 +5,7 @@ from apps.shared_pocketbase.pocketbase_client import get_pocketbase_client
 from datetime import datetime, timedelta
 from flask import request, jsonify
 from pocketbase.utils import ClientResponseError
+from datetime import datetime, timezone
 
 # Initialize the PocketBase client globally. This handles SDK authentication.
 pb_client = get_pocketbase_client()
@@ -63,19 +64,36 @@ def loadSession():
             }
         )
 
-        # The result from get_list is a ListResult object which contains items
-        # We need to serialize each Record object in the items list
         sessions_data = []
+        # Get current time in UTC, timezone-aware
+        current_time_utc = datetime.now(timezone.utc)
+
         for record in records.items:
-            sessions_data.append({
-                'id': record.id,
-                'created': record.created,
-                'updated': record.updated,
-                'device_id': record.device_id,
-                'name': record.name,
-                'expires_at': record.expires_at,
-                'status': record.status,
-            })
+            expires_at_dt = record.expires_at
+            if isinstance(expires_at_dt, str):
+                expires_at_dt = datetime.fromisoformat(expires_at_dt)
+
+            # Ensure expires_at_dt is also timezone-aware UTC for correct comparison
+            if expires_at_dt.tzinfo is None:
+                # If parsed as naive, assume UTC if that's its true meaning
+                # (Common for databases if no explicit tz is stored/retrieved)
+                expires_at_dt = expires_at_dt.replace(tzinfo=timezone.utc)
+            else:
+                # Convert to UTC if it's already aware but in a different timezone
+                expires_at_dt = expires_at_dt.astimezone(timezone.utc)
+
+
+            # Both are timezone-aware UTC and can be safely compared
+            if expires_at_dt > current_time_utc:
+                sessions_data.append({
+                    'id': record.id,
+                    'created': record.created,
+                    'updated': record.updated,
+                    'device_id': record.device_id,
+                    'name': record.name,
+                    'expires_at': record.expires_at,
+                    'status': record.status,
+                })
 
         return jsonify(sessions_data)
 
