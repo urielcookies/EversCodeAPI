@@ -240,6 +240,7 @@ def get_session_photos(session_id):
             photos_data.append({
                 'id': record.id,
                 'image_url': file_url,
+                'likes': record.likes,
                 'created': record.created,
                 'session_id': record.session_id,
                 'originalFilename': record.original_filename,
@@ -429,4 +430,70 @@ def delete_photo(photo_id):
         return jsonify({"error": error_msg, "details": error_data}), e.status
     except Exception as e:
         print(f"Flask: An unexpected error occurred while deleting photo: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
+@everspass_bp.route('/toggle-like/<photo_id>', methods=['POST'])
+def toggle_like(photo_id):
+    """
+    Toggles the like count for a specific photo.
+    Expects a JSON body with 'action': "like" or "unlike".
+    Example: POST /toggle-like/photo123
+    Body: {"action": "like"} or {"action": "unlike"}
+    """
+    if not photo_id:
+        return jsonify({"error": "Photo ID is required."}), 400
+
+    data = request.get_json()
+    action = data.get('action') # Expects "like" or "unlike"
+
+    if action not in ["like", "unlike"]:
+        return jsonify({"error": "Action must be 'like' or 'unlike'."}), 400
+
+    try:
+        # 1. Fetch the current photo record
+        # PocketBase SDK's get_one returns a Record object.
+        # Access its data using .collection_data or treat it like an object attribute.
+        photo_record_obj = pb_client.collection("everspass_photos").get_one(photo_id)
+
+        # Access the 'likes' attribute directly. If it might not exist, use getattr.
+        # PocketBase number fields usually default to 0, but safety check is good.
+        current_likes_count = getattr(photo_record_obj, 'likes', 0)
+
+        # Ensure current_likes_count is an integer (PocketBase should ensure this if field is 'number')
+        if not isinstance(current_likes_count, int):
+            current_likes_count = 0 # Default to 0 if type is unexpectedly wrong
+
+        new_likes_count = current_likes_count
+        message = ""
+
+        if action == "like":
+            new_likes_count += 1
+            message = "Photo liked successfully."
+        elif action == "unlike":
+            # Prevent likes from going below zero
+            new_likes_count = max(0, new_likes_count - 1)
+            message = "Photo unliked successfully."
+
+        # 2. Update the photo record with the new likes count
+        # When updating, you pass a dictionary for the data.
+        pb_client.collection("everspass_photos").update(photo_id, {"likes": new_likes_count})
+
+        # 3. Return the updated likes count
+        return jsonify({
+            "message": message,
+            "action": action,
+            "photo_id": photo_id,
+            "new_likes_count": new_likes_count,
+        }), 200
+
+    except ClientResponseError as e:
+        if e.status == 404:
+            print(f"Flask: Photo not found for ID: {photo_id}")
+            return jsonify({"error": "Photo not found."}), 404
+        print(f"Flask: PocketBase error toggling like count: {e}")
+        error_msg = getattr(e, 'message', str(e))
+        error_data = getattr(e, 'data', {})
+        return jsonify({"error": error_msg, "details": error_data}), e.status
+    except Exception as e:
+        print(f"Flask: An unexpected error occurred while toggling like count: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
