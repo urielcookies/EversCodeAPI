@@ -235,8 +235,12 @@ def get_session_photos(session_id):
         
         # Serialize the photo data, creating a full URL for each photo
         photos_data = []
+        session_size = 0  # Total session size in bytes
+
         for record in photo_records.items:
             file_url = pb_client.get_file_url(record, record.image_url)
+            photo_size = getattr(record, 'size', 0) or 0  # Fallback if `size` is missing
+
             photos_data.append({
                 'id': record.id,
                 'image_url': file_url,
@@ -244,14 +248,18 @@ def get_session_photos(session_id):
                 'created': record.created,
                 'session_id': record.session_id,
                 'originalFilename': record.original_filename,
+                'size': photo_size
             })
+
+            session_size += photo_size  # Accumulate total
 
         return jsonify({
             "page": photo_records.page,
             "perPage": photo_records.per_page,
             "totalPages": photo_records.total_pages,
             "totalItems": photo_records.total_items,
-            "items": photos_data
+            "items": photos_data,
+            "sessionSize": session_size
         })
 
     except ClientResponseError as e:
@@ -298,6 +306,16 @@ def upload_photos_to_session(session_id):
     # Process each file individually to create a new record per file
     for i, file in enumerate(valid_files):
         filename = file.filename
+
+        # Get file size in bytes
+        file.stream.seek(0, os.SEEK_END)
+        file_size_bytes = file.stream.tell()
+        file.stream.seek(0)  # Reset stream for upload
+
+        file_size_kb = round(file_size_bytes / 1024, 2)
+        file_size_mb = round(file_size_kb / 1024, 2)
+        file_size_gb = round(file_size_mb / 1024, 2)
+
         try:
             existing_records = pb_client.collection("everspass_photos").get_list(
                 page=1,
@@ -308,29 +326,23 @@ def upload_photos_to_session(session_id):
             )
 
             if existing_records.total_items > 0:
-                # File already exists, skip upload
                 skipped_uploads.append({
                     "filename": filename,
                     "reason": "File already exists for this session.",
-                    "record_id": existing_records.items[0].id # Optionally return existing record ID
+                    "record_id": existing_records.items[0].id
                 })
-                print(f"Flask: Skipped upload for '{filename}'. Already exists (Record ID: {existing_records.items[0].id}).")
-                continue # Skip to the next file in the loop
-            # --- END NEW CHECK ---
+                print(f"Flask: Skipped '{filename}' - already exists (ID: {existing_records.items[0].id})")
+                continue
 
-            # Prepare non-file data for the multipart request for THIS file
             upload_data = {
                 'session_id': session_id,
-                'originalFilename': filename # Use the filename of the current file
+                'originalFilename': filename,
+                'size': file_size_bytes
             }
 
-            # Prepare file data for the multipart request for THIS file
-            # 'image_url' must match the File field name in your PocketBase collection
             upload_files_current = [('image_url', (file.filename, file.stream, file.content_type))]
 
-            # Send the request using requests.post for THIS SINGLE FILE
             pb_upload_url = f"{os.getenv('POCKETBASE_API')}/api/collections/everspass_photos/records"
-
             response = requests.post(
                 pb_upload_url,
                 data=upload_data,
@@ -338,14 +350,19 @@ def upload_photos_to_session(session_id):
                 headers={'Authorization': f'Bearer {admin_token}'},
                 timeout=60
             )
-
             response.raise_for_status()
-
             response_json = response.json()
+
             successful_uploads.append({
                 "filename": filename,
                 "record_id": response_json.get("id"),
-                "record_data": response_json
+                "record_data": response_json,
+                "size": {
+                    "bytes": file_size_bytes,
+                    "kilobytes": file_size_kb,
+                    "megabytes": file_size_mb,
+                    "gigabytes": file_size_gb
+                }
             })
 
         except requests.exceptions.HTTPError as errh:
