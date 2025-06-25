@@ -271,9 +271,10 @@ def get_session_photos(session_id):
         
         # Serialize the photo data, creating a full URL for each photo
         photos_data = []
+        session_size = 0
         for record in photo_records.items:
             file_url = pb_client.get_file_url(record, record.image_url)
-            photo_size = getattr(record, 'size', 0) or 0  # Fallback if `size` is missing
+            session_size += record.size
 
             photos_data.append({
                 'id': record.id,
@@ -282,7 +283,7 @@ def get_session_photos(session_id):
                 'created': record.created,
                 'session_id': record.session_id,
                 'originalFilename': record.original_filename,
-                'size': photo_size
+                'size': record.size
             })
 
         return jsonify({
@@ -291,6 +292,7 @@ def get_session_photos(session_id):
             "totalPages": photo_records.total_pages,
             "totalItems": photo_records.total_items,
             "items": photos_data,
+            "sessionSize": session_size,
             "totalDeviceSessionsSize": total_size_across_all_device_sessions,
             "deviceId": device_id
         })
