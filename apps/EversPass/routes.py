@@ -215,17 +215,51 @@ def get_session_photos(session_id):
     """
     Loads all photos associated with a specific session ID.
     Supports pagination via query parameters.
+    Also retrieves the total_photos_size across ALL sessions for the
+    device associated with the given session_id.
     Example: GET /sessions/a1b2c3d4/photos?page=1&perPage=50
     """
     if not session_id:
         return jsonify({"error": "The 'session_id' parameter is required."}), 400
 
+    device_id = None
+    total_size_across_all_device_sessions = 0
+
     try:
-        # Get pagination parameters from the request, with sane defaults
+        # Step 1: Fetch the specific session record to get its device_id
+        current_session_record = pb_client.collection("everspass_sessions").get_one(session_id)
+        device_id = current_session_record.device_id
+        
+        # Step 2: Now, fetch ALL sessions belonging to this device_id
+        # Use get_full_list to ensure all matching sessions are retrieved,
+        # regardless of default pagination, for accurate summation.
+        all_device_sessions = pb_client.collection("everspass_sessions").get_full_list(
+            query_params={"filter": f'device_id = "{device_id}"'}
+        )
+
+        # Step 3: Sum the total_photos_size for all sessions found for this device
+        for session in all_device_sessions:
+            session_size = getattr(session, 'total_photos_size', 0)
+            total_size_across_all_device_sessions += session_size
+
+    except ClientResponseError as e:
+        if e.status == 404:
+            # If the initial session_id is not found, or no sessions for device
+            return jsonify({"error": "Session or associated device not found."}), 404
+        print(f"PocketBase error while fetching session details or device sessions: {e}")
+        return jsonify({"error": "Failed to retrieve session/device details for total size."}), 500
+    except Exception as e:
+        print(f"An unexpected error occurred while processing device total size: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
+    # --- End of cross-session total size calculation ---
+
+    try:
+        # Get pagination parameters for photos from the request
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('perPage', 50, type=int)
 
-        # Query the 'everspass_photos' collection
+        # Query the 'everspass_photos' collection for photos of the *specific* session
         photo_records = pb_client.collection("everspass_photos").get_list(
             page=page,
             per_page=per_page,
@@ -237,8 +271,6 @@ def get_session_photos(session_id):
         
         # Serialize the photo data, creating a full URL for each photo
         photos_data = []
-        session_size = 0  # Total session size in bytes
-
         for record in photo_records.items:
             file_url = pb_client.get_file_url(record, record.image_url)
             photo_size = getattr(record, 'size', 0) or 0  # Fallback if `size` is missing
@@ -253,24 +285,23 @@ def get_session_photos(session_id):
                 'size': photo_size
             })
 
-            session_size += photo_size  # Accumulate total
-
         return jsonify({
             "page": photo_records.page,
             "perPage": photo_records.per_page,
             "totalPages": photo_records.total_pages,
             "totalItems": photo_records.total_items,
             "items": photos_data,
-            "sessionSize": session_size
+            "totalDeviceSessionsSize": total_size_across_all_device_sessions,
+            "deviceId": device_id
         })
 
     except ClientResponseError as e:
         if e.status == 404:
-            return jsonify({"error": "Session or photos not found."}), 404
-        print(f"PocketBase error: {e}")
+            return jsonify({"error": "No photos found for this session."}), 200 # Or 404 if "no photos" means "not found"
+        print(f"PocketBase error while fetching photos: {e}")
         return jsonify({"error": str(e), "status": e.status}), e.status
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred while fetching photos: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
 
 # This route handles uploading photos, creating a new record for EACH file.
