@@ -24,7 +24,6 @@ def createSession():
             "device_id": device_id,
             "name": session_name,
             "expires_at": (datetime.utcnow() + timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S.%fZ'),
-            "status": "active",
             "total_photos_size": 0
         })
 
@@ -35,7 +34,6 @@ def createSession():
             'device_id': record.device_id,
             'name': record.name,
             'expires_at': record.expires_at,
-            'status': record.status,
             'total_photos_size': record.total_photos_size
         }
 
