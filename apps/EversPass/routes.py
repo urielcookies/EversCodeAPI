@@ -24,7 +24,7 @@ def createSession():
             "device_id": device_id,
             "name": session_name,
             "expires_at": (datetime.utcnow() + timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S.%fZ'),
-            "total_photos_size": 0
+            "total_photos_bytes": 0
         })
 
         record_data = {
@@ -34,7 +34,7 @@ def createSession():
             'device_id': record.device_id,
             'name': record.name,
             'expires_at': record.expires_at,
-            'total_photos_size': record.total_photos_size
+            'total_photos_bytes': record.total_photos_bytes
         }
 
         return jsonify(record_data)
@@ -92,7 +92,7 @@ def loadSession():
                     'device_id': record.device_id,
                     'name': record.name,
                     'expires_at': record.expires_at,
-                    'total_photos_size': record.total_photos_size
+                    'total_photos_bytes': record.total_photos_bytes
                 })
 
         return jsonify(sessions_data)
@@ -213,7 +213,7 @@ def get_session_photos(session_id):
     """
     Loads all photos associated with a specific session ID.
     Supports pagination via query parameters.
-    Also retrieves the total_photos_size across ALL sessions for the
+    Also retrieves the total_photos_bytes across ALL sessions for the
     device associated with the given session_id.
     Example: GET /sessions/a1b2c3d4/photos?page=1&perPage=50
     """
@@ -235,9 +235,9 @@ def get_session_photos(session_id):
             query_params={"filter": f'device_id = "{device_id}"'}
         )
 
-        # Step 3: Sum the total_photos_size for all sessions found for this device
+        # Step 3: Sum the total_photos_bytes for all sessions found for this device
         for session in all_device_sessions:
-            session_size = getattr(session, 'total_photos_size', 0)
+            session_size = getattr(session, 'total_photos_bytes', 0)
             total_size_across_all_device_sessions += session_size
 
     except ClientResponseError as e:
@@ -399,7 +399,7 @@ def upload_photos_to_session(session_id):
             })
 
             # --- DENORMALIZATION STEP: ADD SIZE TO SESSION ---
-            update_session_total_photo_size(session_id, file_size_bytes)
+            update_session_photo_stats(session_id, file_size_bytes, 1)
             # --- END DENORMALIZATION STEP ---
 
         except requests.exceptions.HTTPError as errh:
@@ -479,7 +479,7 @@ def delete_photo(photo_id):
         
         # --- DENORMALIZATION STEP: SUBTRACT SIZE FROM SESSION ---
         if session_id_to_update: # Only update if we successfully got a session_id
-            update_session_total_photo_size(session_id_to_update, -photo_size_to_subtract)
+            update_session_photo_stats(session_id_to_update, -photo_size_to_subtract, -1)
         # --- END DENORMALIZATION STEP ---
 
         return jsonify({
@@ -564,9 +564,9 @@ def toggle_like(photo_id):
         print(f"Flask: An unexpected error occurred while toggling like count: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
 
-def update_session_total_photo_size(session_id: str, size_change: int):
+def update_session_photo_stats(session_id: str, size_change: int, photo_count_change: int = 0):
     """
-    Updates the 'total_photos_size' field for a specific session.
+    Updates the 'total_photos_bytes' and 'total_photos' fields for a specific session.
     This function is intended to be called by PocketBase hooks
     (e.g., on photo creation, update, or deletion) to maintain
     data consistency.
@@ -574,40 +574,46 @@ def update_session_total_photo_size(session_id: str, size_change: int):
     Args:
         session_id (str): The ID of the session to update.
         size_change (int): The amount to add to or subtract from the
-                          session's total_photos_size.
-                          (e.g., photo_size for add, -photo_size for delete).
+                           session's total_photos_bytes.
+                           (e.g., photo_size for add, -photo_size for delete).
+        photo_count_change (int): The amount to increment/decrement total_photos.
+                                  Use +1 for add, -1 for delete. Default is 0.
     """
     if not session_id:
-        print("Warning: update_session_total_photo_size called without a session_id.")
+        print("Warning: update_session_photo_stats called without a session_id.")
         return
 
     try:
         # Fetch the current session record
         session_record = pb_client.collection("everspass_sessions").get_one(session_id)
 
-        # Get the current total_photos_size, default to 0 if not found
-        current_total_size = getattr(session_record, 'total_photos_size', 0)
+        # Get the current totals (default to 0 if not present or invalid)
+        current_total_size = getattr(session_record, 'total_photos_bytes', 0)
+        current_total_photos = getattr(session_record, 'total_photos', 0)
+
         if not isinstance(current_total_size, (int, float)):
-            current_total_size = 0 # Ensure it's a number
+            current_total_size = 0
+        if not isinstance(current_total_photos, int):
+            current_total_photos = 0
 
-        # Calculate the new total size
-        new_total_size = current_total_size + size_change
+        # Calculate new values, ensuring no negatives
+        new_total_size = max(0, current_total_size + size_change)
+        new_total_photos = max(0, current_total_photos + photo_count_change)
 
-        # Ensure the size doesn't go below zero
-        if new_total_size < 0:
-            new_total_size = 0
-
-        # Update the session record in PocketBase
+        # Update the session record
         pb_client.collection("everspass_sessions").update(
             session_id,
-            {"total_photos_size": new_total_size}
+            {
+                "total_photos_bytes": new_total_size,
+                "total_photos": new_total_photos
+            }
         )
-        print(f"Successfully updated session {session_id} total_photos_size to {new_total_size}")
+        print(f"Successfully updated session {session_id} - size: {new_total_size}, count: {new_total_photos}")
 
     except ClientResponseError as e:
         if e.status == 404:
-            print(f"Error: Session {session_id} not found when trying to update total_photos_size. Details: {e}")
+            print(f"Error: Session {session_id} not found. Details: {e}")
         else:
-            print(f"PocketBase ClientResponseError updating session {session_id} total_photos_size: Status {e.status}, Message: {e.message}, Data: {e.data}")
+            print(f"PocketBase ClientResponseError: Status {e.status}, Message: {e.message}, Data: {e.data}")
     except Exception as e:
-        print(f"An unexpected error occurred while updating session {session_id} total_photos_size: {e}")
+        print(f"Unexpected error updating session {session_id}: {e}")
