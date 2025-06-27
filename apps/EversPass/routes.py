@@ -55,10 +55,12 @@ def loadSession():
     if not device_id:
         return jsonify({"error": "The 'deviceId' query parameter is required."}), 400
 
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 10))
     try:
         records = pb_client.collection("everspass_sessions").get_list(
-            page=1,
-            per_page=10,
+            page=page,
+            per_page=per_page,
             query_params={
                 "filter": f'device_id = "{device_id}"'
             }
@@ -92,10 +94,18 @@ def loadSession():
                     'device_id': record.device_id,
                     'name': record.name,
                     'expires_at': record.expires_at,
-                    'total_photos_bytes': record.total_photos_bytes
+                    'total_photos_bytes': record.total_photos_bytes,
+                    'total_photos': record.total_photos
                 })
 
-        return jsonify(sessions_data)
+        # return jsonify(sessions_data)
+        return jsonify({
+            "page": records.page,
+            "per_page": records.per_page,
+            "total_pages": records.total_pages,
+            "total_items": records.total_items,
+            "items": sessions_data
+        })
 
     except ClientResponseError as e:
         print(f"PocketBase error: {e}")
@@ -174,6 +184,38 @@ def checkSessionExists(device_id):
     except ClientResponseError as e:
         print(f"PocketBase error: {e}")
         return jsonify({"error": str(e), "status": e.status}), e.status
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
+@everspass_bp.route('/find-session/<session_id>', methods=['GET'])
+def findSession(session_id):
+    """
+    Finds a session by session_id and returns the full session record if it exists.
+    Example: GET /find-session/some-session-id
+    """
+    if not session_id:
+        return jsonify({"error": "Session ID is required."}), 400
+    
+    try:
+        # Try to get the record by ID directly
+        record = pb_client.collection("everspass_sessions").get_one(session_id)
+
+        if record:
+            return jsonify({
+                "exists": True,
+                "record": record.__dict__
+            }), 200
+        else:
+            return jsonify({"exists": False, "session_id": session_id}), 200
+
+    except ClientResponseError as e:
+        # If record not found, PocketBase throws an error with 404 status
+        if e.status == 404:
+            return jsonify({"exists": False, "session_id": session_id}), 200
+        print(f"PocketBase error: {e}")
+        return jsonify({"error": str(e), "status": e.status}), e.status
+
     except Exception as e:
         print(f"An error occurred: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
