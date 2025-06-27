@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 pb_client = get_pocketbase_client()
 
 @everspass_bp.route('/hello-world', methods=['GET'])
-def helloworld(session_id):
+def helloworld():
     return "Hello World"
 
 @everspass_bp.route('/create-session', methods=['POST'])
