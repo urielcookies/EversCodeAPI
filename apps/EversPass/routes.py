@@ -190,30 +190,35 @@ def checkSessionExists(device_id):
 
 @everspass_bp.route('/find-session/<session_id>', methods=['GET'])
 def findSession(session_id):
-    """
-    Finds a session by session_id and returns the full session record if it exists.
-    Example: GET /find-session/some-session-id
-    """
     if not session_id:
         return jsonify({"error": "Session ID is required."}), 400
-    
     try:
-        # Try to get the record by ID directly
         record = pb_client.collection("everspass_sessions").get_one(session_id)
 
         if record:
+            # Manually create a dict from the record fields
+            session_data = {
+                "id": record.id,
+                "name": record.name,
+                "device_id": record.device_id,
+                "expires_at": record.expires_at,
+                "total_photos": record.total_photos,
+                "total_photos_bytes": record.total_photos_bytes,
+                "created": record.created,
+                "updated": record.updated,
+                # add any other fields you want to return here
+            }
+
             return jsonify({
                 "exists": True,
-                "record": record.__dict__
+                "record": session_data
             }), 200
         else:
             return jsonify({"exists": False, "session_id": session_id}), 200
 
     except ClientResponseError as e:
-        # If record not found, PocketBase throws an error with 404 status
         if e.status == 404:
             return jsonify({"exists": False, "session_id": session_id}), 200
-        print(f"PocketBase error: {e}")
         return jsonify({"error": str(e), "status": e.status}), e.status
 
     except Exception as e:
