@@ -10,6 +10,10 @@ from datetime import datetime, timezone
 # Initialize the PocketBase client globally. This handles SDK authentication.
 pb_client = get_pocketbase_client()
 
+@everspass_bp.route('/hello-world', methods=['GET'])
+def helloworld(session_id):
+    return "Hello World"
+
 @everspass_bp.route('/create-session', methods=['POST'])
 def createSession():
     data = request.get_json()
