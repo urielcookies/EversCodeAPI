@@ -322,17 +322,37 @@ def get_session_photos(session_id):
         photos_data = []
         session_size = 0
         for record in photo_records.items:
-            file_url = pb_client.get_file_url(record, record.image_url)
+            # Original URL (full size)
+            original_url = pb_client.get_file_url(record, record.image_url)
+
+            # Thumbnail URLs for various sizes, now confirmed in PocketBase config
+            thumbnail_420_url = pb_client.get_file_url(record, record.image_url, query_params={"thumb": "420x420f"})
+            thumbnail_800_url = pb_client.get_file_url(record, record.image_url, query_params={"thumb": "800x800f"})
+            thumbnail_1200_url = pb_client.get_file_url(record, record.image_url, query_params={"thumb": "1200x1200f"})
+
+            # PocketBase automatically provides width and height for file fields (image files)
+            # You can access them directly from the record object if the file field stores them.
+            # Example: record.image_url_width, record.image_url_height
+            # Assuming 'image_url' is your file field, PocketBase often provides these:
+            # Adjust these attribute names based on how PocketBase exposes them for your file field.
+            image_width = getattr(record, f'{record.image_url}_width', None)
+            image_height = getattr(record, f'{record.image_url}_height', None)
+
             session_size += record.size
 
             photos_data.append({
                 'id': record.id,
-                'image_url': file_url,
+                'image_url': original_url, # Full size
+                'thumbnail_420_url': thumbnail_420_url,
+                'thumbnail_800_url': thumbnail_800_url,
+                'thumbnail_1200_url': thumbnail_1200_url,
                 'likes': record.likes,
                 'created': record.created,
                 'session_id': record.session_id,
                 'originalFilename': record.original_filename,
-                'size': record.size
+                'size': record.size,
+                'width': image_width,
+                'height': image_height,
             })
 
         return jsonify({
