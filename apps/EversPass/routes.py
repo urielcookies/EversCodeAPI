@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from flask import request, jsonify
 from pocketbase.utils import ClientResponseError
 from datetime import datetime, timezone
+import time
 
 # Initialize the PocketBase client globally. This handles SDK authentication.
 pb_client = get_pocketbase_client()
@@ -145,6 +146,8 @@ def deleteSession(session_id):
                 # Log or handle individual photo deletion errors if necessary
                 print(f"Error deleting photo {photo.id}: {e}")
                 # Decide whether to continue deleting other photos or stop
+
+        time.sleep(0.5) ### temp... this or cascade photos colletion
 
         # 2. Delete the everspass_sessions record
         pb_client.collection("everspass_sessions").delete(session_id)
