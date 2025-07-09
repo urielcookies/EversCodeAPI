@@ -28,7 +28,7 @@ def createSession():
         record = pb_client.collection("everspass_sessions").create({
             "device_id": device_id,
             "name": session_name,
-            "expires_at": (datetime.utcnow() + timedelta(hours=48)).strftime('%Y-%m-%d %H:%M:%S.%fZ'),
+            "expires_at": (datetime.utcnow() + timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S.%fZ'),
             "total_photos_bytes": 0
         })
 
