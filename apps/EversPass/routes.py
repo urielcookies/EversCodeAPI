@@ -122,38 +122,23 @@ def loadSession():
 @everspass_bp.route('/delete-session/<session_id>', methods=['DELETE'])
 def deleteSession(session_id):
     """
-    Deletes a specific session by its ID and all related photos.
-    The session_id is expected as part of the URL path.
+    Deletes a specific session by its ID.
+    With PocketBase cascade delete enabled, associated photos will be automatically deleted.
     Example: DELETE /delete-session/a1b2c3d4e5f6g7h
     """
     if not session_id:
         return jsonify({"error": "Session ID is required."}), 400
 
     try:
-        # 1. Delete associated everspass_photos
-        # Find all photos related to this session_id
-        # Assuming 'session_id' is the field in 'everspass_photos' that links to 'everspass_sessions'
-        photos_to_delete = pb_client.collection("everspass_photos").get_full_list(
-            query_params={"filter": f'session_id = "{session_id}"'}
-        )
-
-        deleted_photos_count = 0
-        for photo in photos_to_delete:
-            try:
-                pb_client.collection("everspass_photos").delete(photo.id)
-                deleted_photos_count += 1
-            except ClientResponseError as e:
-                # Log or handle individual photo deletion errors if necessary
-                print(f"Error deleting photo {photo.id}: {e}")
-                # Decide whether to continue deleting other photos or stop
-
-        time.sleep(0.5) ### temp... this or cascade photos colletion
-
-        # 2. Delete the everspass_sessions record
+        # 1. Delete the everspass_sessions record.
+        # PocketBase's cascade delete will automatically handle associated everspass_photos.
         pb_client.collection("everspass_sessions").delete(session_id)
 
+        # Removed: Manual photo deletion loop and time.sleep()
+        # They are no longer necessary as PocketBase handles cascading.
+
         return jsonify({
-            "message": f"Session with ID '{session_id}' and {deleted_photos_count} associated photo(s) deleted successfully."
+            "message": f"Session with ID '{session_id}' deleted successfully (associated photos automatically removed)."
         }), 200
 
     except ClientResponseError as e:
