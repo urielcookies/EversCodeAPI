@@ -25,6 +25,6 @@ def detect_language(input_text):
         if detected_language not in ["spanish", "english", "unsupported"]:
             detected_language = "error"
 
-        return jsonify({'detected_lang': detected_language})
+        return jsonify({'detected_lang': detected_language}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

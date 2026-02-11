@@ -21,6 +21,6 @@ def translate_to_english(input_text):
             temperature=0.2
         )
         translation = response['choices'][0]['message']['content'].strip()
-        return jsonify({'translation': translation})
+        return jsonify({'translation': translation}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

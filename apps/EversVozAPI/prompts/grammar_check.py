@@ -23,9 +23,9 @@ def grammar_check(input_text):
 
         # If the text is grammatically correct, return the original text, else return the corrected text
         if json_response == "The text is grammatically correct.":
-            return jsonify({'grammar_check': input_text})
+            return jsonify({'grammar_check': input_text}), 200
         else:
-            return jsonify({'grammar_check': json_response})
+            return jsonify({'grammar_check': json_response}), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

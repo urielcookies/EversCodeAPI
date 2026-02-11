@@ -49,6 +49,6 @@ def phonetic_explanation(input_text):
             temperature=0.2
         )
         json_response = response['choices'][0]['message']['content'].strip()
-        return jsonify({'phonetic_explanation': json_response})
+        return jsonify({'phonetic_explanation': json_response}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
