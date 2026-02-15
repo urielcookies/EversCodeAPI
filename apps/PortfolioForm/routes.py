@@ -1,4 +1,6 @@
 import os
+import re
+import requests
 import resend
 from flask import request, render_template_string, abort
 from apps.PortfolioForm import portfoliocontactform_bp
@@ -9,6 +11,71 @@ from apps.shared_resend.resend_client import send_contact_form_email
 
 
 pb_client = get_pocketbase_client()
+
+TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
+
+
+def is_gibberish(text: str) -> bool:
+    """Detect gibberish strings by checking vowel ratio and average word length."""
+    clean = re.sub(r'[^a-zA-Z\s]', '', text)
+    if not clean:
+        return True
+
+    words = clean.split()
+    if not words:
+        return True
+
+    avg_word_length = sum(len(w) for w in words) / len(words)
+    if avg_word_length > 12:
+        return True
+
+    vowels = sum(1 for c in clean.lower() if c in 'aeiou')
+    total_alpha = sum(1 for c in clean if c.isalpha())
+    if total_alpha > 0:
+        vowel_ratio = vowels / total_alpha
+        if vowel_ratio < 0.15:
+            return True
+
+    upper_in_middle = sum(
+        1 for w in words
+        for c in w[1:]
+        if c.isupper()
+    )
+    if total_alpha > 5 and upper_in_middle / total_alpha > 0.3:
+        return True
+
+    return False
+
+
+def is_suspicious_email(email: str) -> bool:
+    """Detect suspicious email patterns like excessive dots in local part."""
+    local_part = email.split('@')[0]
+    dot_count = local_part.count('.')
+    clean_local = local_part.replace('.', '')
+    if len(clean_local) > 0 and dot_count / len(clean_local) > 0.3:
+        return True
+    return False
+
+
+def verify_turnstile(token: str) -> bool:
+    """Verify Cloudflare Turnstile token server-side."""
+    if not TURNSTILE_SECRET_KEY:
+        return True  # Skip verification if not configured
+
+    try:
+        response = requests.post(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            data={
+                "secret": TURNSTILE_SECRET_KEY,
+                "response": token,
+            },
+            timeout=5,
+        )
+        result = response.json()
+        return result.get("success", False)
+    except Exception as e:
+        print(f"Turnstile verification failed: {e}")
+        return False
 
 @portfoliocontactform_bp.route('/', methods=['POST'])
 def handle_form():
@@ -26,6 +93,18 @@ def handle_form():
     # Validate required fields
     if not all([first_name, last_name, email, phone, message]):
         abort(400, "All fields (first name, last name, email, phone, message) are required.")
+
+    # Verify Cloudflare Turnstile
+    turnstile_token = request.form.get('cf-turnstile-response', '')
+    if not verify_turnstile(turnstile_token):
+        abort(400, "CAPTCHA verification failed. Please try again.")
+
+    # Spam content detection
+    if is_gibberish(first_name) or is_gibberish(last_name) or is_gibberish(message):
+        abort(400, "Your submission was flagged as spam.")
+
+    if is_suspicious_email(email):
+        abort(400, "Your submission was flagged as spam.")
 
     name = f"{first_name} {last_name}"
 
