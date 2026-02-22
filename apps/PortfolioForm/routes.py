@@ -1,6 +1,5 @@
 import os
 import re
-import requests
 import resend
 from flask import request, render_template_string, abort
 from apps.PortfolioForm import portfoliocontactform_bp
@@ -11,8 +10,6 @@ from apps.shared_resend.resend_client import send_contact_form_email
 
 
 pb_client = get_pocketbase_client()
-
-TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
 
 
 def is_gibberish(text: str) -> bool:
@@ -57,26 +54,6 @@ def is_suspicious_email(email: str) -> bool:
     return False
 
 
-def verify_turnstile(token: str) -> bool:
-    """Verify Cloudflare Turnstile token server-side."""
-    if not TURNSTILE_SECRET_KEY:
-        return True  # Skip verification if not configured
-
-    try:
-        response = requests.post(
-            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-            data={
-                "secret": TURNSTILE_SECRET_KEY,
-                "response": token,
-            },
-            timeout=5,
-        )
-        result = response.json()
-        return result.get("success", False)
-    except Exception as e:
-        print(f"Turnstile verification failed: {e}")
-        return False
-
 @portfoliocontactform_bp.route('/', methods=['POST'])
 def handle_form():
     # Honeypot field (bots fill it, users don't)
@@ -93,11 +70,6 @@ def handle_form():
     # Validate required fields
     if not all([first_name, last_name, email, phone, message]):
         abort(400, "All fields (first name, last name, email, phone, message) are required.")
-
-    # Verify Cloudflare Turnstile
-    turnstile_token = request.form.get('cf-turnstile-response', '')
-    if not verify_turnstile(turnstile_token):
-        abort(400, "CAPTCHA verification failed. Please try again.")
 
     # Spam content detection
     if is_gibberish(first_name) or is_gibberish(last_name) or is_gibberish(message):
