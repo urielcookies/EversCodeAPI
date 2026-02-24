@@ -64,6 +64,7 @@ Deleted nightly (except saved jobs marked `is_active = false`)
 | `verified` | auto | ❌ | Auth field |
 | `resume_text` | editor | ✅ | Full resume for AI matching |
 | `target_keywords` | json | ✅ | Search terms (e.g., `["React", "Remote"]`) |
+| `preferred_locations` | json | ✅ | Accepted locations (e.g., `["Remote", "Los Angeles", "Albuquerque"]`) |
 | `scoring_model` | select | ✅ | `haiku`, `sonnet`, `hybrid` |
 | `min_salary` | number | ❌ | Minimum acceptable salary |
 | `min_match_score` | number | ✅ | Only show jobs >= this % (default: 70) |
@@ -219,9 +220,9 @@ Never deleted (permanent blacklist)
 | Metric | Value |
 |--------|-------|
 | **Total Collections** | 5 |
-| **Total Fields** | 60 (including auto fields) |
+| **Total Fields** | 61 (including auto fields) |
 | **Total Indexes** | 11 |
-| **Job Type** | Remote jobs only |
+| **Job Type** | Remote + user-specified locations |
 | **Job Retention** | 24 hours (unless saved/applied) |
 | **Score Retention** | 24 hours (cleaned with jobs) |
 | **Saved Jobs Retention** | Permanent |
@@ -233,10 +234,11 @@ Never deleted (permanent blacklist)
 
 ### Morning Cron (6:00 AM)
 
-1. Scrape jobs → `EverApply_jobs` (~200 records)
-2. Score jobs → `EverApply_match_scores` (~200 records)
-3. Filter blacklisted companies
-4. User sees fresh matches
+1. For each user, scrape jobs matching their `target_keywords` and `preferred_locations`
+2. Save to `EverApply_jobs` (~200 records per user)
+3. Score jobs against user's `resume_text` → `EverApply_match_scores`
+4. Filter by `min_match_score`, blacklisted companies, and `min_salary`
+5. User sees fresh matches
 
 ### User Actions (Throughout Day)
 
@@ -257,5 +259,3 @@ Never deleted (permanent blacklist)
 - Blacklist persists
 
 ---
-
-**Database setup complete! ✅**
