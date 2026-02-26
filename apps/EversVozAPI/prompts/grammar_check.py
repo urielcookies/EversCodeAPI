@@ -22,7 +22,7 @@ def grammar_check(input_text):
         json_response = response.choices[0].message.content.strip()
 
         # If the text is grammatically correct, return the original text, else return the corrected text
-        if json_response == "The text is grammatically correct.":
+        if "grammatically correct" in json_response.lower():
             return jsonify({'grammar_check': input_text}), 200
         else:
             return jsonify({'grammar_check': json_response}), 200
