@@ -51,6 +51,13 @@ Placeholder app, under development.
 
 ---
 
+### Status
+Public status page showing the health of all backend services.
+
+- `GET /status` — Renders an HTML status page. Live-pings PocketBase and checks env vars for DeepSeek, Google TTS, and Resend. Returns HTTP 200 if all services operational, 503 if degraded.
+
+---
+
 ### Test
 Debug/smoke test endpoint.
 
