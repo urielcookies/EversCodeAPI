@@ -1,5 +1,5 @@
 from flask import jsonify
-from apps.EversVozAPI.utils.kimi_client import kimi_client
+from apps.EversVozAPI.utils.deepseek_client import deepseek_client
 
 def phonetic_explanation(input_text):
     prompt = f"""
@@ -42,8 +42,8 @@ def phonetic_explanation(input_text):
     """
 
     try:
-        response = kimi_client.chat.completions.create(
-            model="moonshot-v1-8k",
+        response = deepseek_client.chat.completions.create(
+            model="deepseek-chat",
             messages=[{"role": "system", "content": prompt}],
             max_tokens=1000,
             temperature=0.2
