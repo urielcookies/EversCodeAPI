@@ -676,3 +676,27 @@ def update_session_photo_stats(session_id: str, size_change: int, photo_count_ch
             print(f"PocketBase ClientResponseError: Status {e.status}, Message: {e.message}, Data: {e.data}")
     except Exception as e:
         print(f"Unexpected error updating session {session_id}: {e}")
+
+@everspass_bp.route('/shorten-url', methods=['POST'])
+def shorten_url():
+    data = request.get_json()
+    url = data.get('url')
+
+    if not url:
+        return jsonify({"error": "url is required"}), 400
+
+    # Skip shortening for local URLs — is.gd rejects them
+    if 'localhost' in url or '127.0.0.1' in url:
+        return jsonify({"shortUrl": url}), 200
+
+    try:
+        res = requests.get(
+            f"https://is.gd/create.php?format=simple&url={url}",
+            timeout=5
+        )
+        if not res.ok:
+            raise Exception(f"is.gd responded with {res.status_code}")
+        return jsonify({"shortUrl": res.text.strip()}), 200
+    except Exception as e:
+        print(f"URL shortening failed: {e}")
+        return jsonify({"error": "Failed to shorten URL"}), 500
