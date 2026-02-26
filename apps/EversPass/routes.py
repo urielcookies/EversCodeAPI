@@ -691,7 +691,8 @@ def shorten_url():
 
     try:
         res = requests.get(
-            f"https://is.gd/create.php?format=simple&url={url}",
+            "https://is.gd/create.php",
+            params={"format": "simple", "url": url},
             timeout=5
         )
         if not res.ok:
