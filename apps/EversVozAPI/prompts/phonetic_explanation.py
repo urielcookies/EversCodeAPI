@@ -1,5 +1,5 @@
-import openai
 from flask import jsonify
+from apps.EversVozAPI.utils.kimi_client import kimi_client
 
 def phonetic_explanation(input_text):
     prompt = f"""
@@ -42,13 +42,13 @@ def phonetic_explanation(input_text):
     """
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
+        response = kimi_client.chat.completions.create(
+            model="moonshot-v1-8k",
             messages=[{"role": "system", "content": prompt}],
             max_tokens=1000,
             temperature=0.2
         )
-        json_response = response['choices'][0]['message']['content'].strip()
+        json_response = response.choices[0].message.content.strip()
         return jsonify({'phonetic_explanation': json_response}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

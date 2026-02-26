@@ -1,5 +1,5 @@
-import openai
 from flask import jsonify
+from apps.EversVozAPI.utils.kimi_client import kimi_client
 
 def translate_to_english(input_text):
     prompt = f"""
@@ -14,13 +14,13 @@ def translate_to_english(input_text):
     """
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
+        response = kimi_client.chat.completions.create(
+            model="moonshot-v1-8k",
             messages=[{"role": "system", "content": prompt}],
             max_tokens=300,
             temperature=0.2
         )
-        translation = response['choices'][0]['message']['content'].strip()
+        translation = response.choices[0].message.content.strip()
         return jsonify({'translation': translation}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

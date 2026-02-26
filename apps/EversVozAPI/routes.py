@@ -1,6 +1,5 @@
 import os
 import base64
-import openai
 import json
 from io import BytesIO
 from flask import request, jsonify, send_file
@@ -14,8 +13,6 @@ from .prompts.detect_language import detect_language
 from .prompts.translate import translate_to_english
 from .prompts.grammar_check import grammar_check
 from .prompts.phonetic_explanation import phonetic_explanation
-
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Check if running in a local environment
 credentials_base64 = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_BASE64')

@@ -1,5 +1,5 @@
-import openai
 from flask import jsonify
+from apps.EversVozAPI.utils.kimi_client import kimi_client
 
 def detect_language(input_text):
     prompt = f"""
@@ -12,14 +12,14 @@ def detect_language(input_text):
     """
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
+        response = kimi_client.chat.completions.create(
+            model="moonshot-v1-8k",
             messages=[{"role": "system", "content": prompt}],
             max_tokens=50,  # Reduced since we only need one word
             temperature=0.2
         )
 
-        detected_language = response['choices'][0]['message']['content'].strip().lower()
+        detected_language = response.choices[0].message.content.strip().lower()
 
         # Only accept the three valid responses
         if detected_language not in ["spanish", "english", "unsupported"]:

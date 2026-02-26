@@ -1,5 +1,5 @@
-import openai
 from flask import jsonify
+from apps.EversVozAPI.utils.kimi_client import kimi_client
 
 def grammar_check(input_text):
     prompt = f"""
@@ -13,13 +13,13 @@ def grammar_check(input_text):
     """
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
+        response = kimi_client.chat.completions.create(
+            model="moonshot-v1-32k",
             messages=[{"role": "system", "content": prompt}],
             max_tokens=300,
             temperature=0.2
         )
-        json_response = response['choices'][0]['message']['content'].strip()
+        json_response = response.choices[0].message.content.strip()
 
         # If the text is grammatically correct, return the original text, else return the corrected text
         if json_response == "The text is grammatically correct.":
