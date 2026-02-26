@@ -52,9 +52,10 @@ def transcribe():
     # Detect language
     detected_lang_response = detect_language(input_text)
     detected_lang_data, status_code = extract_json_from_response(detected_lang_response)
-    
+
     if status_code != 200 or not detected_lang_data:
-        return jsonify({"error": "Error detecting language"}), 500
+        raw_error = detected_lang_data.get("error", "Error detecting language") if detected_lang_data else "Error detecting language"
+        return jsonify({"error": "Servicio no disponible. Intenta más tarde.", "debug": raw_error}), 500
     
     detected_lang = detected_lang_data.get("detected_lang", "")
 
@@ -67,7 +68,8 @@ def transcribe():
         grammar_check_data, status_code = extract_json_from_response(grammar_check_response)
         
         if status_code != 200 or not grammar_check_data:
-            return jsonify({"error": "Error checking grammar"}), 500
+            raw_error = grammar_check_data.get("error", "Error checking grammar") if grammar_check_data else "Error checking grammar"
+            return jsonify({"error": "Servicio no disponible. Intenta más tarde.", "debug": raw_error}), 500
             
         english_phrase = grammar_check_data.get("grammar_check", "")
         
@@ -76,7 +78,8 @@ def transcribe():
         translate_data, status_code = extract_json_from_response(translate_response)
         
         if status_code != 200 or not translate_data:
-            return jsonify({"error": "Error translating text"}), 500
+            raw_error = translate_data.get("error", "Error translating text") if translate_data else "Error translating text"
+            return jsonify({"error": "Servicio no disponible. Intenta más tarde.", "debug": raw_error}), 500
             
         english_phrase = translate_data.get("translation", "")
 
@@ -85,7 +88,8 @@ def transcribe():
     phonetic_explanation_data, status_code = extract_json_from_response(phonetic_explanation_response)
     
     if status_code != 200 or not phonetic_explanation_data:
-        return jsonify({"error": "Error generating phonetic explanation"}), 500
+        raw_error = phonetic_explanation_data.get("error", "Error generating phonetic explanation") if phonetic_explanation_data else "Error generating phonetic explanation"
+        return jsonify({"error": "Servicio no disponible. Intenta más tarde.", "debug": raw_error}), 500
 
     response_data = {
         "detected_lang": detected_lang,
