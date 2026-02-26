@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from flask import Flask
 from flask_cors import CORS
+from apps.Status import status_bp
 from apps.Test import test_bp
 from apps.EversVozAPI import eversvoz_bp
 from apps.PortfolioForm import portfoliocontactform_bp
@@ -15,6 +16,7 @@ app.url_map.strict_slashes = False
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 CORS(app, origins=allowed_origins, supports_credentials=True)
 
+app.register_blueprint(status_bp)
 app.register_blueprint(test_bp)
 app.register_blueprint(eversvoz_bp)
 app.register_blueprint(portfoliocontactform_bp)
