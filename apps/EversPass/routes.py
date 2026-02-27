@@ -11,6 +11,8 @@ import time
 # Initialize the PocketBase client globally. This handles SDK authentication.
 pb_client = get_pocketbase_client()
 
+FREE_TIER_QUOTA_BYTES = int(os.getenv('EVERSPASS_FREE_TIER_QUOTA_BYTES', 1_073_741_824))  # 1 GB default
+
 @everspass_bp.route('/hello-world', methods=['GET'])
 def helloworld():
     return "Hello World"
@@ -398,6 +400,24 @@ def upload_photos_to_session(session_id):
             return jsonify({"error": f"Authentication failed for upload batch: {str(e)}"}), 500
 
 
+    # --- QUOTA CHECK SETUP ---
+    # Fetch current device quota usage (only counts uploads made after quota was introduced)
+    try:
+        current_session_record = pb_client.collection("everspass_sessions").get_one(session_id)
+        upload_device_id = current_session_record.device_id
+
+        all_device_sessions = pb_client.collection("everspass_sessions").get_full_list(
+            query_params={"filter": f'device_id = "{upload_device_id}"'}
+        )
+        current_device_quota_used = sum(
+            getattr(s, 'quota_bytes_used', 0) or 0 for s in all_device_sessions
+        )
+    except Exception as e:
+        return jsonify({"error": f"Could not verify storage quota: {str(e)}"}), 500
+
+    bytes_uploaded_this_batch = 0
+    # --- END QUOTA CHECK SETUP ---
+
     # Process each file individually to create a new record per file
     for i, file in enumerate(valid_files):
         filename = file.filename
@@ -410,6 +430,18 @@ def upload_photos_to_session(session_id):
         file_size_kb = round(file_size_bytes / 1024, 2)
         file_size_mb = round(file_size_kb / 1024, 2)
         file_size_gb = round(file_size_mb / 1024, 2)
+
+        # Quota check — reject if this file would push device over the limit
+        if current_device_quota_used + bytes_uploaded_this_batch + file_size_bytes > FREE_TIER_QUOTA_BYTES:
+            failed_uploads.append({
+                "filename": filename,
+                "error": "Storage quota exceeded",
+                "quota_bytes": FREE_TIER_QUOTA_BYTES,
+                "used_bytes": current_device_quota_used + bytes_uploaded_this_batch,
+                "file_size_bytes": file_size_bytes,
+            })
+            print(f"Flask: Rejected '{filename}' — quota exceeded ({current_device_quota_used + bytes_uploaded_this_batch + file_size_bytes} > {FREE_TIER_QUOTA_BYTES})")
+            continue
 
         try:
             existing_records = pb_client.collection("everspass_photos").get_list(
@@ -464,8 +496,9 @@ def upload_photos_to_session(session_id):
             })
 
             # --- DENORMALIZATION STEP: ADD SIZE TO SESSION ---
-            update_session_photo_stats(session_id, file_size_bytes, 1)
+            update_session_photo_stats(session_id, file_size_bytes, 1, quota_change=file_size_bytes)
             # --- END DENORMALIZATION STEP ---
+            bytes_uploaded_this_batch += file_size_bytes
 
         except requests.exceptions.HTTPError as errh:
             error_details = {}
@@ -473,6 +506,7 @@ def upload_photos_to_session(session_id):
                 error_details = errh.response.json()
             except:
                 error_details = errh.response.text
+                print(f"Flask: PocketBase rejected '{filename}': {error_details}")
             failed_uploads.append({
                 "filename": filename,
                 "error": f"HTTP Error: {errh}",
@@ -629,7 +663,7 @@ def toggle_like(photo_id):
         print(f"Flask: An unexpected error occurred while toggling like count: {e}")
         return jsonify({"error": "An internal server error occurred."}), 500
 
-def update_session_photo_stats(session_id: str, size_change: int, photo_count_change: int = 0):
+def update_session_photo_stats(session_id: str, size_change: int, photo_count_change: int = 0, quota_change: int = 0):
     """
     Updates the 'total_photos_bytes' and 'total_photos' fields for a specific session.
     This function is intended to be called by PocketBase hooks
@@ -643,6 +677,8 @@ def update_session_photo_stats(session_id: str, size_change: int, photo_count_ch
                            (e.g., photo_size for add, -photo_size for delete).
         photo_count_change (int): The amount to increment/decrement total_photos.
                                   Use +1 for add, -1 for delete. Default is 0.
+        quota_change (int): The amount to add to quota_bytes_used (forward-only quota tracking).
+                            Pass file_size_bytes on upload. Default is 0 (no quota impact).
     """
     if not session_id:
         print("Warning: update_session_photo_stats called without a session_id.")
@@ -655,25 +691,30 @@ def update_session_photo_stats(session_id: str, size_change: int, photo_count_ch
         # Get the current totals (default to 0 if not present or invalid)
         current_total_size = getattr(session_record, 'total_photos_bytes', 0)
         current_total_photos = getattr(session_record, 'total_photos', 0)
+        current_quota_used = getattr(session_record, 'quota_bytes_used', 0) or 0
 
         if not isinstance(current_total_size, (int, float)):
             current_total_size = 0
         if not isinstance(current_total_photos, int):
             current_total_photos = 0
+        if not isinstance(current_quota_used, (int, float)):
+            current_quota_used = 0
 
         # Calculate new values, ensuring no negatives
         new_total_size = max(0, current_total_size + size_change)
         new_total_photos = max(0, current_total_photos + photo_count_change)
+        new_quota_used = max(0, current_quota_used + quota_change)
 
         # Update the session record
         pb_client.collection("everspass_sessions").update(
             session_id,
             {
                 "total_photos_bytes": new_total_size,
-                "total_photos": new_total_photos
+                "total_photos": new_total_photos,
+                "quota_bytes_used": new_quota_used,
             }
         )
-        print(f"Successfully updated session {session_id} - size: {new_total_size}, count: {new_total_photos}")
+        print(f"Successfully updated session {session_id} - size: {new_total_size}, count: {new_total_photos}, quota_used: {new_quota_used}")
 
     except ClientResponseError as e:
         if e.status == 404:
