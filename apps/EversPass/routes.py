@@ -328,8 +328,11 @@ def get_session_photos(session_id):
 
             session_size += record.size
 
+            media_type = getattr(record, 'media_type', None) or 'photo'
+
             photos_data.append({
                 'id': record.id,
+                'media_type': media_type,
                 'image_url': original_url, # Full size
                 'thumbnail_420_url': thumbnail_420_url,
                 'thumbnail_800_url': thumbnail_800_url,
@@ -426,10 +429,13 @@ def upload_photos_to_session(session_id):
                 print(f"Flask: Skipped '{filename}' - already exists (ID: {existing_records.items[0].id})")
                 continue
 
+            media_type = 'video' if file.content_type.startswith('video/') else 'photo'
+
             upload_data = {
                 'session_id': session_id,
                 'originalFilename': filename,
-                'size': file_size_bytes
+                'size': file_size_bytes,
+                'media_type': media_type,
             }
 
             upload_files_current = [('image_url', (file.filename, file.stream, file.content_type))]
