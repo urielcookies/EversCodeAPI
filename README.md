@@ -84,10 +84,21 @@ The `web` service DATABASE_URL is automatically set to point at the `db` service
 ## Railway Deployment
 
 1. Push this repo to GitHub.
-2. Create a new Railway project and connect your repo.
-3. Add a **PostgreSQL** plugin — Railway will inject `DATABASE_URL` automatically.
-4. Set `SECRET_KEY` and `ENV=production` in Railway's environment variables.
-5. Railway picks up `railway.toml` and builds from the `Dockerfile`.
+2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo → select your repo.
+3. Click **+ Add** → **Database** → **PostgreSQL** — Railway creates a separate cloud DB.
+4. Click your **web service** → **Variables** → click **"Trying to connect a database? Add Variable"** → select **DATABASE_URL** from the dropdown. This links your app to the Railway Postgres service.
+5. Add these two variables manually:
+   - `SECRET_KEY` → your generated secret key
+   - `ENV` → `production`
+   - Do NOT add `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, or `DATABASE_URL` as plain values — Railway manages those.
+6. Click **Deploy** — Railway builds from the `Dockerfile`, runs `alembic upgrade head`, then starts the server.
+
+Every `git push origin main` after this triggers an automatic redeploy.
+
+### Viewing prod data (TablePlus / pgAdmin)
+1. Open your Railway **Postgres** service → **Variables**
+2. Copy `DATABASE_PUBLIC_URL`
+3. In TablePlus: New Connection → PostgreSQL → paste the URL → Test → Connect
 
 ---
 
