@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqladmin import Admin
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from core.config import settings
 from core.database import engine
@@ -35,6 +36,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Trust Railway's reverse proxy so HTTPS is correctly detected
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # --- Routers ---
 app.include_router(app_one_router, prefix="/app-one", tags=["app_one"])
