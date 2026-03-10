@@ -75,6 +75,8 @@ The `web` service DATABASE_URL is automatically set to point at the `db` service
 |---|---|---|
 | `DATABASE_URL` | Async PostgreSQL DSN | `postgresql+asyncpg://user:pass@localhost:5432/mydb` |
 | `SECRET_KEY` | Signs the SQLAdmin session cookie | `change-me-in-production` |
+| `ADMIN_USERNAME` | Admin UI login username | `admin` |
+| `ADMIN_PASSWORD` | Admin UI login password | `change-me-in-production` |
 | `ENV` | `development` or `production` | `development` |
 
 > For Docker Compose you can also set `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` to configure the `db` service.
@@ -87,8 +89,10 @@ The `web` service DATABASE_URL is automatically set to point at the `db` service
 2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo → select your repo.
 3. Click **+ Add** → **Database** → **PostgreSQL** — Railway creates a separate cloud DB.
 4. Click your **web service** → **Variables** → click **"Trying to connect a database? Add Variable"** → select **DATABASE_URL** from the dropdown. This links your app to the Railway Postgres service.
-5. Add these two variables manually:
+5. Add these variables manually:
    - `SECRET_KEY` → your generated secret key
+   - `ADMIN_USERNAME` → your admin login username
+   - `ADMIN_PASSWORD` → a strong password for the admin UI
    - `ENV` → `production`
    - Do NOT add `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, or `DATABASE_URL` as plain values — Railway manages those.
 6. Click **Deploy** — Railway builds from the `Dockerfile`, runs `alembic upgrade head`, then starts the server.

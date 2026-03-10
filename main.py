@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqladmin import Admin
 
+from core.auth import authentication_backend
 from core.config import settings
 from core.database import engine
 from core.realtime import realtime
@@ -42,7 +43,7 @@ app.include_router(app_two_router, prefix="/app-two", tags=["app_two"])
 
 # --- Admin ---
 # SECRET_KEY signs the admin session cookie
-admin = Admin(app, engine, base_url="/admin", title="EversCodeAPI Admin")
+admin = Admin(app, engine, base_url="/admin", title="EversCodeAPI Admin", authentication_backend=authentication_backend)
 # app_one
 admin.add_view(ItemAdmin)
 
