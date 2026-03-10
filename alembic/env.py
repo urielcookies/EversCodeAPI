@@ -1,9 +1,14 @@
 import asyncio
+import sys
+import os
 from logging.config import fileConfig
 
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy import pool
 from alembic import context
+
+# Ensure the project root (/app) is on the path so `core` and `apps` are importable
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.config import settings
 from core.database import Base
