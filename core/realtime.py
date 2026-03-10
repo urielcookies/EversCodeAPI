@@ -45,6 +45,7 @@ class RealtimeManager:
     async def listen(self, channel: str) -> None:
         """Open a dedicated asyncpg connection and start listening on `channel`."""
         # asyncpg uses the raw postgres:// DSN, not the sqlalchemy+asyncpg:// one
+        # asyncpg needs postgresql://, strip +asyncpg if present (handles both Railway and local URLs)
         raw_dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
         conn = await asyncpg.connect(raw_dsn)
         queue: asyncio.Queue = asyncio.Queue()
