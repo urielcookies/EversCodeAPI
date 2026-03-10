@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 8000
 
 # Production: no --reload. Set ENV=development locally if you want reload via docker-compose.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips=*"]

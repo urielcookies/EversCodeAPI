@@ -76,11 +76,8 @@ The `web` service DATABASE_URL is automatically set to point at the `db` service
 | `DATABASE_URL` | Async PostgreSQL DSN | `postgresql+asyncpg://user:pass@localhost:5432/mydb` |
 | `SECRET_KEY` | Signs the SQLAdmin session cookie | `change-me-in-production` |
 | `ENV` | `development` or `production` | `development` |
-| `TRUSTED_HOSTS` | IPs trusted for HTTPS proxy headers | `["127.0.0.1"]` |
 
 > For Docker Compose you can also set `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` to configure the `db` service.
->
-> `TRUSTED_HOSTS` must also be set in Railway Variables so the admin UI loads correctly over HTTPS.
 
 ---
 
