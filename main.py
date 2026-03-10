@@ -38,7 +38,7 @@ app = FastAPI(
 )
 
 # Trust Railway's reverse proxy so HTTPS is correctly detected
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.TRUSTED_HOSTS)
 
 # --- Routers ---
 app.include_router(app_one_router, prefix="/app-one", tags=["app_one"])
