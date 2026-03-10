@@ -7,6 +7,6 @@ python-dotenv
 pydantic-settings
 jinja2
 python-multipart
-sqladmin
+sqladmin==0.20.1
 itsdangerous
 alembic
