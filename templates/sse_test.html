@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSE Test — {{ app_name }}</title>
+  <style>
+    body { font-family: monospace; background: #0f0f0f; color: #e0e0e0; padding: 2rem; }
+    h1 { color: #7dd3fc; margin-bottom: 0.25rem; }
+    p  { color: #94a3b8; margin-top: 0; }
+    #status { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px;
+              font-size: 0.75rem; margin-bottom: 1rem; background: #1e293b; }
+    #status.connected    { background: #14532d; color: #86efac; }
+    #status.disconnected { background: #450a0a; color: #fca5a5; }
+    ul { list-style: none; padding: 0; max-height: 60vh; overflow-y: auto; }
+    li { background: #1e293b; border-left: 3px solid #7dd3fc; padding: 0.5rem 0.75rem;
+         margin-bottom: 0.5rem; border-radius: 0 4px 4px 0; word-break: break-all; }
+    li.event-connected { border-color: #86efac; }
+    li.event-error      { border-color: #f87171; }
+    .ts { color: #64748b; font-size: 0.7rem; margin-right: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>SSE Test — {{ app_name }}</h1>
+  <p>Channel: <strong>{{ channel }}</strong></p>
+  <div id="status" class="disconnected">Connecting…</div>
+  <ul id="events"></ul>
+
+  <script>
+    const sseUrl = "{{ sse_url }}";
+    const status = document.getElementById("status");
+    const list   = document.getElementById("events");
+
+    function addItem(text, cls = "") {
+      const li = document.createElement("li");
+      if (cls) li.classList.add(`event-${cls}`);
+      const ts = new Date().toLocaleTimeString();
+      li.innerHTML = `<span class="ts">${ts}</span>${text}`;
+      list.prepend(li);
+    }
+
+    const es = new EventSource(sseUrl);
+
+    es.addEventListener("connected", (e) => {
+      status.textContent = "Connected";
+      status.className = "connected";
+      addItem(e.data, "connected");
+    });
+
+    es.addEventListener("error", (e) => {
+      status.textContent = "Error";
+      status.className = "disconnected";
+      addItem(e.data ?? "connection error", "error");
+    });
+
+    // Default message event — carries the NOTIFY payload
+    es.onmessage = (e) => {
+      addItem(e.data);
+    };
+
+    es.onerror = () => {
+      status.textContent = "Disconnected — retrying…";
+      status.className = "disconnected";
+    };
+  </script>
+</body>
+</html>
