@@ -8,4 +8,5 @@ pydantic-settings
 jinja2
 python-multipart
 sqladmin
+itsdangerous
 alembic
