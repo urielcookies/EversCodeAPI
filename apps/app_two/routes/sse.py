@@ -10,12 +10,6 @@ templates = Jinja2Templates(directory="templates")
 CHANNEL = "app_two_updates"
 
 
-@router.get("/test")
-async def test():
-    """Health-check endpoint."""
-    return {"app": "app_two", "status": "ok"}
-
-
 @router.get("/")
 async def index(request: Request):
     """Renders the SSE test page for app_two."""
