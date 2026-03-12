@@ -15,7 +15,7 @@ from core.database import Base
 
 # Import all models so Alembic can detect schema changes via Base.metadata
 import apps.app_one.models  # noqa: F401
-import apps.app_two.models  # noqa: F401
+import apps.blog_demo.models  # noqa: F401
 
 config = context.config
 
