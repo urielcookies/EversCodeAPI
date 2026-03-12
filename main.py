@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     # --- Startup ---
     # Tables are managed by Alembic
     # Start listening on each app's PostgreSQL channel
-    # app_one does not use realtime — only app_two listens
+    # app_one does not use realtime — only blog_demo listens
     await realtime.listen("blog_updates")
 
     yield
@@ -47,7 +47,7 @@ admin = Admin(app, engine, base_url="/admin", title="EversCodeAPI Admin", authen
 # app_one
 admin.add_view(ItemAdmin)
 
-# app_two
+# blog_demo
 admin.add_view(CategoryAdmin)
 admin.add_view(PostAdmin)
 
