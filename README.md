@@ -251,6 +251,8 @@ The `web` service `DATABASE_URL` is automatically set to point at the `db` servi
    - `ADMIN_USERNAME` → your admin login username
    - `ADMIN_PASSWORD` → a strong password for the admin UI
    - `ENV` → `production`
+   - `BLOG_DEMO_API_KEY` → your API key for the blog demo routes
+   - Any other app-specific API keys (e.g. `YOUR_APP_API_KEY`) — **the app will fail to start if a required variable is missing**
    - Do NOT add `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, or `DATABASE_URL` as plain values — Railway manages those.
 6. Click **Deploy** — Railway builds from the `Dockerfile`, runs `alembic upgrade head`, then starts the server.
 
