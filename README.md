@@ -110,6 +110,8 @@ Migrations are handled by Alembic. The `Dockerfile` runs `alembic upgrade head` 
 > PostgreSQL must be running before any Alembic command. Start it with `docker-compose up -d` if it isn't already.
 
 ```bash
+# Applies all pending migrations to bring the DB schema up to date with your models.
+# "head" means the latest migration. Safe to run when already up to date — it does nothing.
 alembic upgrade head
 ```
 
