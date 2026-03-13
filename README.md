@@ -187,12 +187,43 @@ Each app has its own PostgreSQL channel. The browser connects once and receives 
 2. A route exposes a `StreamingResponse` using `realtime.sse_generator("channel_name")`
 3. When your API fires `pg_notify`, all connected clients receive the event instantly
 
+### How this compares to PocketBase subscriptions
+
+PocketBase and SSE follow the same mental model — the client subscribes once and receives push updates automatically:
+
+| | PocketBase | This API (SSE) |
+|---|---|---|
+| Subscribe | `pb.collection('posts').subscribe('*', fn)` | `new EventSource('/blog-demo/live')` |
+| Receive event | `fn(e)` where `e.record` is the new data | `es.onmessage` where `e.data` is the payload |
+| Trigger | PocketBase detects DB change automatically | You fire `pg_notify` manually in the route |
+| Unsubscribe | `pb.collection('posts').unsubscribe()` | `es.close()` |
+
+The key difference: PocketBase wires the DB → client push automatically. Here you control it explicitly via `pg_notify` in your route handler.
+
 ### Connect from the browser
 
+> **Note:** `EventSource` does not support custom headers. Run this from `http://localhost:8000` (not `about:blank`) to avoid CORS issues.
+
 ```js
-const es = new EventSource('/blog-demo/live');
-es.addEventListener('connected', () => console.log('connected'));
-es.onmessage = (e) => console.log(JSON.parse(e.data));
+const es = new EventSource('http://localhost:8000/blog-demo/live');
+es.addEventListener('connected', (e) => console.log('connected:', e.data));
+es.onmessage = (e) => console.log('new event:', JSON.parse(e.data));
+es.onerror = (e) => console.error('error:', e);
+```
+
+### React example
+
+```jsx
+useEffect(() => {
+  const es = new EventSource('http://localhost:8000/blog-demo/live');
+  es.onmessage = (e) => {
+    const event = JSON.parse(e.data);
+    if (event.event === 'post_published') {
+      setPosts((prev) => [...prev, event]); // or refetch
+    }
+  };
+  return () => es.close(); // cleanup on unmount
+}, []);
 ```
 
 ### Fire a notification from your API route
@@ -212,14 +243,38 @@ await db.commit()
 NOTIFY blog_updates, '{"event": "post_published", "title": "Hello World"}';
 ```
 
-### Register a new channel
+### Adding realtime to any app
 
-In `main.py` lifespan:
+Three steps:
 
+**1. Create `routes/sse.py`** with the SSE stream endpoint:
+```python
+@router.get("/live")
+async def live():
+    return StreamingResponse(
+        realtime.sse_generator("your_channel"),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+```
+
+**2. Register the channel** in `main.py` lifespan:
 ```python
 await realtime.listen("your_channel")   # startup
 await realtime.unlisten("your_channel") # shutdown
 ```
+
+**3. Fire `pg_notify`** in any route where you want to push an event to connected clients:
+```python
+import json
+from sqlalchemy import text
+
+payload = json.dumps({"event": "record_created", "id": record.id})
+await db.execute(text("SELECT pg_notify(:channel, :payload)"), {"channel": "your_channel", "payload": payload})
+await db.commit()
+```
+
+That's all that's needed. Repeat step 3 for any route (create, update, delete) you want to broadcast.
 
 ---
 
