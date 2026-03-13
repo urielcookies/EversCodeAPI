@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqladmin import Admin
 
@@ -8,6 +8,7 @@ from core.auth import authentication_backend
 from core.config import settings
 from core.database import engine
 from core.realtime import realtime
+from core.security import verify_api_key
 
 
 from apps.app_one.routes import router as app_one_router
@@ -39,7 +40,7 @@ app = FastAPI(
 
 # --- Routers ---
 app.include_router(app_one_router, prefix="/app-one", tags=["app_one"])
-app.include_router(blog_demo_router, prefix="/blog-demo", tags=["blog_demo"])
+app.include_router(blog_demo_router, prefix="/blog-demo", tags=["blog_demo"], dependencies=[Depends(verify_api_key)])
 
 # --- Admin ---
 # SECRET_KEY signs the admin session cookie

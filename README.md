@@ -64,8 +64,40 @@ Visit:
 | `ADMIN_USERNAME` | Admin UI login username | `admin` |
 | `ADMIN_PASSWORD` | Admin UI login password | `change-me-in-production` |
 | `ENV` | `development` or `production` | `development` |
+| `BLOG_DEMO_API_KEY` | API key for all `/blog-demo/*` routes | `change-me-in-production` |
 
 > For Docker Compose you can also set `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` to configure the `db` service.
+
+---
+
+## Authentication
+
+### API Key (blog_demo)
+
+All `/blog-demo/*` routes require an `X-API-Key` header. Set `BLOG_DEMO_API_KEY` in your `.env` and pass the key on every request.
+
+```bash
+curl http://localhost:8000/blog-demo/posts \
+  -H "X-API-Key: your-api-key-here"
+```
+
+```js
+fetch('/blog-demo/posts', {
+  headers: { 'X-API-Key': 'your-api-key-here' }
+})
+```
+
+Missing or incorrect key returns `403 Forbidden`.
+
+### Adding auth to a new app
+
+1. Add a key to `Settings` in `core/config.py` (e.g. `YOUR_APP_API_KEY: str`)
+2. Add the variable to `.env` and `.env.example`
+3. Add a dependency in `core/security.py`
+4. Pass it to `include_router` in `main.py`:
+```python
+app.include_router(your_router, dependencies=[Depends(your_auth_dependency)])
+```
 
 ---
 

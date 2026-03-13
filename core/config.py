@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str
     ADMIN_PASSWORD: str
     ENV: str = "development"
+    BLOG_DEMO_API_KEY: str
 
     class Config:
         env_file = ".env"
