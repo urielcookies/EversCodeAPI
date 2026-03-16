@@ -13,6 +13,8 @@ from core.security import verify_api_key
 
 from apps.app_one.routes import router as app_one_router
 from apps.blog_demo.routes import router as blog_demo_router
+from apps.ever_apply.routes import router as ever_apply_router
+
 from apps.app_one.admin import ItemAdmin
 from apps.blog_demo.admin import CategoryAdmin, PostAdmin
 
@@ -41,6 +43,7 @@ app = FastAPI(
 # --- Routers ---
 app.include_router(app_one_router, prefix="/app-one", tags=["app_one"])
 app.include_router(blog_demo_router, prefix="/blog-demo", tags=["blog_demo"], dependencies=[Depends(verify_api_key)])
+app.include_router(ever_apply_router, prefix="/ever-apply", tags=["ever_apply"])
 
 # --- Admin ---
 # SECRET_KEY signs the admin session cookie

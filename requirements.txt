@@ -10,3 +10,12 @@ python-multipart==0.0.22
 sqladmin==0.23.0
 itsdangerous==2.2.0
 alembic==1.18.4
+
+# ever_apply
+pyjwt[cryptography]==2.12.1   # Clerk JWT verification (uses RS256)
+httpx==0.28.1                 # Async HTTP (fetch Clerk JWKS + Apify + Greenhouse/Lever)
+openai==2.28.0                # DeepSeek uses the same Python client — just swap base_url
+apify-client==2.5.0           # LinkedIn + Indeed scraping
+pdfplumber==0.11.9            # PDF text extraction
+apscheduler==3.11.2           # Scheduled scrape/cleanup jobs
+boto3==1.42.68                # Cloudflare R2 resume storage (R2 is S3-compatible, boto3 works)
