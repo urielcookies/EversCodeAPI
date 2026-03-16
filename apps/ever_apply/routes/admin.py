@@ -77,11 +77,13 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
         # Score against each user's resume
         for user in users:
             summary = user.parsed_data.get("summary", "")
+            skills = ", ".join(user.parsed_data.get("skills", []))
+            resume_context = f"Summary: {summary}\nSkills: {skills}"
             description = job_data.get("description", "")
             if not summary or not description:
                 continue
 
-            result = await score_match(summary, description)
+            result = await score_match(resume_context, description)
             score = result.get("score", 0)
             reason = result.get("reason", "")
 
@@ -99,3 +101,45 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
 
     await db.commit()
     return {"jobs_fetched": len(jobs), "matches_created": matched}
+
+
+# POST /admin/score
+# Score existing DB jobs against all users — no Apify call
+@router.post("/score", dependencies=[Depends(verify_admin_key)])
+async def trigger_score(db: AsyncSession = Depends(get_db)):
+    from apps.ever_apply.services.scoring import score_match
+
+    users_result = await db.execute(
+        select(User).where(User.parsed_data.isnot(None))
+    )
+    users = users_result.scalars().all()
+
+    jobs_result = await db.execute(select(Job).where(Job.description != ""))
+    jobs = jobs_result.scalars().all()
+
+    matched = 0
+    for job in jobs:
+        for user in users:
+            summary = user.parsed_data.get("summary", "")
+            skills = ", ".join(user.parsed_data.get("skills", []))
+            resume_context = f"Summary: {summary}\nSkills: {skills}"
+            if not summary or not job.description:
+                continue
+
+            result = await score_match(resume_context, job.description)
+            score = result.get("score", 0)
+            reason = result.get("reason", "")
+
+            min_score = (user.preferences or {}).get("min_score", 70)
+            if score >= min_score:
+                match = JobMatch(
+                    user_id=user.id,
+                    job_id=job.id,
+                    score=score,
+                    reason=reason,
+                )
+                db.add(match)
+                matched += 1
+
+    await db.commit()
+    return {"jobs_scored": len(jobs), "matches_created": matched}

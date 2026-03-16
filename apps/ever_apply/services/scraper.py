@@ -18,11 +18,15 @@ def _normalize_job(raw: dict, source: str) -> dict:
     elif not posted_at:
         posted_at = datetime.utcnow()
 
+    location = raw.get("location") or raw.get("jobLocation", "")
+    if isinstance(location, dict):
+        location = location.get("formattedAddressShort") or location.get("formattedAddressLong") or ""
+
     return {
         "title": raw.get("title") or raw.get("jobTitle", ""),
         "company": raw.get("company") or raw.get("companyName", ""),
-        "description": raw.get("description") or raw.get("jobDescription", ""),
-        "location": raw.get("location") or raw.get("jobLocation", ""),
+        "description": raw.get("description") or raw.get("jobDescription") or raw.get("descriptionText") or raw.get("descriptionHtml", ""),
+        "location": location,
         "remote_type": raw.get("remote_type") or raw.get("workType", None),
         "salary_min": raw.get("salary_min") or raw.get("salaryMin", None),
         "salary_max": raw.get("salary_max") or raw.get("salaryMax", None),
@@ -34,28 +38,17 @@ def _normalize_job(raw: dict, source: str) -> dict:
     }
 
 
-async def fetch_linkedin_jobs(keywords: list[str], location: str = "") -> list[dict]:
-    """Scrape LinkedIn jobs via Apify actor bebity/linkedin-jobs-scraper."""
-    run_input = {
-        "keywords": keywords,
-        "location": location,
-        "datePosted": "past24Hours",
-        "maxResults": 50,
-    }
-    run = apify.actor("bebity/linkedin-jobs-scraper").call(run_input=run_input)
-    items = apify.dataset(run["defaultDatasetId"]).iterate_items()
-    return [_normalize_job(item, "linkedin") for item in items]
-
-
 async def fetch_indeed_jobs(keywords: list[str], location: str = "") -> list[dict]:
-    """Scrape Indeed jobs via Apify actor misceres/indeed-scraper."""
+    """Scrape Indeed jobs via Apify actor borderline/indeed-scraper (PPR)."""
     run_input = {
-        "position": " ".join(keywords),
-        "country": "US",
+        "country": "us",
+        "query": " ".join(keywords),
         "location": location,
-        "maxItems": 50,
+        "maxRows": 50,
+        "fromDays": "1",
+        "saveOnlyUniqueJobs": True,
     }
-    run = apify.actor("misceres/indeed-scraper").call(run_input=run_input)
+    run = apify.actor("borderline/indeed-scraper").call(run_input=run_input)
     items = apify.dataset(run["defaultDatasetId"]).iterate_items()
     return [_normalize_job(item, "indeed") for item in items]
 
@@ -84,8 +77,7 @@ async def fetch_all_jobs(keywords: list[str], location: str = "") -> list[dict]:
     """Run all scrapers and return combined deduplicated job list."""
     all_jobs = []
 
-    # Apify scrapers (LinkedIn + Indeed)
-    all_jobs += await fetch_linkedin_jobs(keywords, location)
+    # Apify scraper (Indeed)
     all_jobs += await fetch_indeed_jobs(keywords, location)
 
     # Deduplicate by source_url before returning
