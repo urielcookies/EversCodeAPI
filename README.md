@@ -107,12 +107,12 @@ Migrations are handled by Alembic. The `Dockerfile` runs `alembic upgrade head` 
 
 ### Apply migrations locally
 
-> PostgreSQL must be running before any Alembic command. Start it with `docker-compose up -d` if it isn't already.
+> Docker must be running before any Alembic command. Start it with `docker-compose up -d` if it isn't already.
 
 ```bash
 # Applies all pending migrations to bring the DB schema up to date with your models.
 # "head" means the latest migration. Safe to run when already up to date — it does nothing.
-alembic upgrade head
+docker-compose exec web alembic upgrade head
 ```
 
 ### After changing a model
@@ -120,11 +120,11 @@ alembic upgrade head
 Any time you add, remove, or modify a column or table, generate a new migration:
 
 ```bash
-# PostgreSQL must be running
+# Docker must be running
 docker-compose up -d
 
-alembic revision --autogenerate -m "describe_your_change"
-alembic upgrade head
+docker-compose exec web alembic revision --autogenerate -m "describe_your_change"
+docker-compose exec web alembic upgrade head
 ```
 
 Alembic diffs your SQLAlchemy models against the current DB state and writes the migration file automatically. Review it in `alembic/versions/` before applying.
@@ -132,7 +132,7 @@ Alembic diffs your SQLAlchemy models against the current DB state and writes the
 ### Roll back the last migration
 
 ```bash
-alembic downgrade -1
+docker-compose exec web alembic downgrade -1
 ```
 
 ---
@@ -173,8 +173,8 @@ admin.add_view(YourModelAdmin)
 4. Generate and apply the migration:
 
 ```bash
-alembic revision --autogenerate -m "add_your_app_tables"
-alembic upgrade head
+docker-compose exec web alembic revision --autogenerate -m "add_your_app_tables"
+docker-compose exec web alembic upgrade head
 ```
 
 ---

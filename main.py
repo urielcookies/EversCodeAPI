@@ -14,9 +14,11 @@ from core.security import verify_api_key
 from apps.app_one.routes import router as app_one_router
 from apps.blog_demo.routes import router as blog_demo_router
 from apps.ever_apply.routes import router as ever_apply_router
+from apps.ever_apply.scheduler import scheduler
 
 from apps.app_one.admin import ItemAdmin
 from apps.blog_demo.admin import CategoryAdmin, PostAdmin
+from apps.ever_apply.admin import UserAdmin, JobAdmin, JobMatchAdmin
 
 
 @asynccontextmanager
@@ -26,11 +28,13 @@ async def lifespan(app: FastAPI):
     # Start listening on each app's PostgreSQL channel
     # app_one does not use realtime — only blog_demo listens
     await realtime.listen("blog_updates")
+    scheduler.start()
 
     yield
 
     # --- Shutdown ---
     await realtime.unlisten("blog_updates")
+    scheduler.shutdown()
     await engine.dispose()
 
 
@@ -54,6 +58,11 @@ admin.add_view(ItemAdmin)
 # blog_demo
 admin.add_view(CategoryAdmin)
 admin.add_view(PostAdmin)
+
+# ever_apply
+admin.add_view(UserAdmin)
+admin.add_view(JobAdmin)
+admin.add_view(JobMatchAdmin)
 
 # --- Static files (create a /static dir if you need to serve assets) ---
 # app.mount("/static", StaticFiles(directory="static"), name="static")
