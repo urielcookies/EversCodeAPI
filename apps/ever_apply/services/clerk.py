@@ -1,3 +1,4 @@
+import time
 import httpx
 import jwt
 from fastapi import Depends, HTTPException
@@ -7,14 +8,26 @@ from core.config import settings
 # tells FastAPI to extract the Authorization: Bearer <token> header automatically
 security = HTTPBearer()
 
-async def get_jwks():
+# In-memory JWKS cache — avoids hitting Clerk on every request
+_jwks_cache: dict = {}
+_jwks_cached_at: float = 0.0
+_JWKS_TTL = 3600  # re-fetch once per hour
+
+
+async def get_jwks() -> dict:
+    global _jwks_cache, _jwks_cached_at
+    if _jwks_cache and (time.time() - _jwks_cached_at) < _JWKS_TTL:
+        return _jwks_cache
     async with httpx.AsyncClient() as client:
         response = await client.get(settings.CLERK_JWKS_URL)
         response.raise_for_status()
-        return response.json()
+        _jwks_cache = response.json()
+        _jwks_cached_at = time.time()
+    return _jwks_cache
+
 
 async def get_current_clerk_user(token=Depends(security)) -> dict:
-    # Fetch Clerk's public keys from JWKS URL
+    # Fetch Clerk's public keys from JWKS URL (cached for 1 hour)
     jwks = await get_jwks()
 
     # Peek at the token header to find which key was used to sign it
@@ -29,7 +42,16 @@ async def get_current_clerk_user(token=Depends(security)) -> dict:
             public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
             break
 
-    # If no matching key found the token is fake or from a different app
+    # If no matching key found — try refreshing the cache once (Clerk may have rotated keys)
+    if not public_key:
+        global _jwks_cached_at
+        _jwks_cached_at = 0.0
+        jwks = await get_jwks()
+        for key in jwks["keys"]:
+            if key["kid"] == unverified_header["kid"]:
+                public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                break
+
     if not public_key:
         raise HTTPException(status_code=401, detail="Invalid token: no matching key")
 

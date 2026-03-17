@@ -43,12 +43,33 @@ def _normalize_job(raw: dict, source: str) -> dict:
     if isinstance(location, dict):
         location = location.get("formattedAddressShort") or location.get("formattedAddressLong") or ""
 
+    # Company — borderline returns employer as an object with a name field
+    company = (
+        raw.get("company")
+        or raw.get("companyName")
+        or (raw.get("employer") or {}).get("name")
+        or ""
+    )
+
+    # Remote type — prefer isRemote boolean, fall back to attributes array (e.g. ["Remote", "Full-time"])
+    attributes = [a.lower() for a in (raw.get("attributes") or [])]
+    if raw.get("isRemote") is True:
+        remote_type = "remote"
+    elif raw.get("isRemote") is False:
+        remote_type = "onsite"
+    elif "remote" in attributes:
+        remote_type = "remote"
+    elif "hybrid" in attributes:
+        remote_type = "hybrid"
+    else:
+        remote_type = raw.get("remote_type") or raw.get("workType") or None
+
     return {
         "title": raw.get("title") or raw.get("jobTitle", ""),
-        "company": raw.get("company") or raw.get("companyName", ""),
+        "company": company,
         "description": raw.get("description") or raw.get("jobDescription") or raw.get("descriptionText") or raw.get("descriptionHtml", ""),
         "location": location,
-        "remote_type": "remote" if raw.get("isRemote") is True else ("onsite" if raw.get("isRemote") is False else raw.get("remote_type") or raw.get("workType")),
+        "remote_type": remote_type,
         "salary_min": raw.get("salary_min") or raw.get("salaryMin", None),
         "salary_max": raw.get("salary_max") or raw.get("salaryMax", None),
         "posted_at": posted_at,

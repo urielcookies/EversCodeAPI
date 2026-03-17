@@ -103,6 +103,8 @@ DeepSeek (`deepseek-chat`) acts as the scoring engine. No vector math or embeddi
 - `50–69` — partial match, missing one or more key required skills
 - `< 50` — significant mismatch
 
+**Keywords:** Built from aggregated `parsed_data.titles` across all users (deduped, max 5). Falls back to `["software engineer", "developer"]` if no titles found.
+
 **Cost control:** `/admin/score` only calls DeepSeek for jobs the user has not been scored against yet. Re-running it on an already-scored dataset fires zero API calls.
 
 ---
@@ -110,18 +112,19 @@ DeepSeek (`deepseek-chat`) acts as the scoring engine. No vector math or embeddi
 ## Services
 
 ### `clerk.py`
-Verifies Clerk JWT using RS256 + JWKS. Called via `Depends(get_current_clerk_user)` on all user-facing routes. Returns the decoded payload (`sub` = `clerk_user_id`).
+Verifies Clerk JWT using RS256 + JWKS. Called via `Depends(get_current_clerk_user)` on all user-facing routes. Returns the decoded payload (`sub` = `clerk_user_id`). JWKS is cached in-memory for 1 hour — re-fetched automatically on expiry or if Clerk rotates keys.
 
 ### `resume.py`
-1. Upload PDF bytes to Cloudflare R2 (S3-compatible via boto3)
-2. Extract text with pdfplumber (no temp files — uses `BytesIO`)
-3. Send text to DeepSeek → structured `ParsedData` (skills, titles, seniority, years_exp, summary)
-4. Store `parsed_data` JSONB + `resume_url` on the User record
+1. Delete existing resume from R2 if the user already has one (one resume per user)
+2. Upload new PDF bytes to Cloudflare R2 (S3-compatible via boto3)
+3. Extract text with pdfplumber (no temp files — uses `BytesIO`)
+4. Send text to DeepSeek → structured `ParsedData` (skills, titles, seniority, years_exp, summary)
+5. Store `parsed_data` JSONB + `resume_url` on the User record
 
 ### `scraper.py`
 - **Indeed** — `borderline/indeed-scraper` Apify actor ($5/1000 jobs PPR). Job count controlled by `EVER_APPLY_MAX_JOBS` env var.
 - **Greenhouse/Lever** — direct public API calls (no Apify, no cost). Currently unused in `fetch_all_jobs` — add company slugs to enable.
-- `_normalize_job()` normalizes all sources into the `Job` model shape.
+- `_normalize_job()` normalizes all sources into the `Job` model shape. Company resolved from `employer.name` (borderline format). Remote type resolved from `isRemote` boolean first, then `attributes` array (e.g. `["Remote", "Full-time"]`) as fallback.
 - `_parse_age()` parses Indeed's `age` field (e.g. `"16 hours ago"`) to compute accurate `posted_at` and `expires_at = posted_at + 24h`.
 
 ### `scoring.py`
@@ -176,3 +179,5 @@ EVER_APPLY_ADMIN_KEY     # Static key for /admin/* routes
 | APScheduler over Celery | No Redis dependency for Phase 1; swap if scale demands it |
 | Cloudflare R2 | S3-compatible (boto3 works unchanged), zero egress fees |
 | Admin routes as HTTP endpoints | Scheduler + manual curl + future automation all share the same code path |
+| JWKS in-memory cache (1h TTL) | Avoids hitting Clerk's servers on every authenticated request |
+| Per-user keyword aggregation | Fetch uses real job titles from resumes instead of hardcoded strings |

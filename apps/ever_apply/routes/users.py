@@ -6,7 +6,7 @@ from core.database import get_db
 from apps.ever_apply.models import User
 from apps.ever_apply.schemas import UserRead, UserPreferenceRead, UserPreferencesUpdate
 from apps.ever_apply.services.clerk import get_current_clerk_user
-from apps.ever_apply.services.resume import upload_resume, extract_text, parse_resume
+from apps.ever_apply.services.resume import upload_resume, delete_resume, extract_text, parse_resume
 
 router = APIRouter()
 
@@ -95,13 +95,17 @@ async def upload_user_resume(
     # Read file bytes once — reuse for both upload and text extraction
     file_bytes = await file.read()
 
-    # 1. Upload to R2
+    # 1. Delete old resume from R2 if one exists
+    if user.resume_url:
+        await delete_resume(user.resume_url)
+
+    # 2. Upload to R2
     resume_url = await upload_resume(file_bytes, file.filename)
 
-    # 2. Extract text from PDF
+    # 3. Extract text from PDF
     text = extract_text(file_bytes)
 
-    # 3. Parse with DeepSeek
+    # 4. Parse with DeepSeek
     parsed_data = await parse_resume(text)
 
     # 4. Save to DB

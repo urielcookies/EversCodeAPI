@@ -21,7 +21,14 @@ def get_r2_client():
     )
 
 
-# 1. Upload PDF to R2, return public URL
+# 1a. Delete existing resume from R2 by its public URL
+async def delete_resume(resume_url: str) -> None:
+    key = resume_url.replace(f"{settings.R2_PUBLIC_URL}/", "")
+    client = get_r2_client()
+    client.delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+
+
+# 1b. Upload PDF to R2, return public URL
 async def upload_resume(file_bytes: bytes, filename: str) -> str:
     client = get_r2_client()
     key = f"resumes/{filename}"

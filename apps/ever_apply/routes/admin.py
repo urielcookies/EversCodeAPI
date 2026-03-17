@@ -61,8 +61,13 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
     )
     users = users_result.scalars().all()
 
-    # Use generic keywords for now — Phase 2 will use per-user preferences
-    jobs = await fetch_all_jobs(keywords=["software engineer", "developer"])
+    # Build keyword list from all users' parsed titles — deduplicated, capped at 5
+    all_titles = []
+    for u in users:
+        all_titles += (u.parsed_data or {}).get("titles", [])
+    keywords = list(dict.fromkeys(all_titles))[:5] or ["software engineer", "developer"]
+
+    jobs = await fetch_all_jobs(keywords=keywords)
 
     matched = 0
     for job_data in jobs:
