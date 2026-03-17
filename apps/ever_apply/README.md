@@ -50,7 +50,7 @@ apps/ever_apply/
 |--------|------|-------------|
 | `POST` | `/admin/fetch` | Scrape Indeed via Apify → score all users → create matches |
 | `POST` | `/admin/score` | Score only unmatched jobs per user — no Apify call |
-| `POST` | `/admin/cleanup` | Delete expired jobs not saved/applied |
+| `POST` | `/admin/cleanup-jobs` | Delete expired jobs not saved/applied |
 
 ---
 

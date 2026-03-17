@@ -25,9 +25,9 @@ def verify_admin_key(key: str = Depends(api_key_header)):
         raise HTTPException(status_code=403, detail="Invalid admin key")
 
 
-# POST /admin/cleanup
+# POST /admin/cleanup-jobs
 # Deletes expired jobs that have not been saved or applied
-@router.post("/cleanup", dependencies=[Depends(verify_admin_key)])
+@router.post("/cleanup-jobs", dependencies=[Depends(verify_admin_key)])
 async def cleanup_jobs(db: AsyncSession = Depends(get_db)):
     # Find job IDs that are saved or applied — never delete these
     protected = await db.execute(
