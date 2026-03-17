@@ -28,13 +28,15 @@ async def lifespan(app: FastAPI):
     # Start listening on each app's PostgreSQL channel
     # app_one does not use realtime — only blog_demo listens
     await realtime.listen("blog_updates")
-    scheduler.start()
+    if settings.EVER_APPLY_SCHEDULER_ENABLED:
+        scheduler.start()
 
     yield
 
     # --- Shutdown ---
     await realtime.unlisten("blog_updates")
-    scheduler.shutdown()
+    if settings.EVER_APPLY_SCHEDULER_ENABLED:
+        scheduler.shutdown()
     await engine.dispose()
 
 
