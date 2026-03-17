@@ -1,7 +1,28 @@
+import re
 import httpx
 from datetime import datetime, timedelta
 from apify_client import ApifyClient
 from core.config import settings
+
+
+def _parse_age(age_str: str) -> datetime:
+    """Parse Indeed's 'age' field (e.g. '16 hours ago', '2 days ago') into a datetime."""
+    now = datetime.utcnow()
+    if not age_str:
+        return now
+    age_str = age_str.lower().strip()
+    match = re.search(r"(\d+)\s+(minute|hour|day|week|month)", age_str)
+    if not match:
+        return now
+    value, unit = int(match.group(1)), match.group(2)
+    delta = {
+        "minute": timedelta(minutes=value),
+        "hour": timedelta(hours=value),
+        "day": timedelta(days=value),
+        "week": timedelta(weeks=value),
+        "month": timedelta(days=value * 30),
+    }.get(unit, timedelta())
+    return now - delta
 
 # Initialize Apify client
 apify = ApifyClient(settings.APIFY_API_TOKEN)
@@ -14,9 +35,9 @@ def _normalize_job(raw: dict, source: str) -> dict:
         try:
             posted_at = datetime.fromisoformat(posted_at.replace("Z", "+00:00"))
         except ValueError:
-            posted_at = datetime.utcnow()
+            posted_at = _parse_age(raw.get("age", ""))
     elif not posted_at:
-        posted_at = datetime.utcnow()
+        posted_at = _parse_age(raw.get("age", ""))
 
     location = raw.get("location") or raw.get("jobLocation", "")
     if isinstance(location, dict):

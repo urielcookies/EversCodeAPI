@@ -4,6 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, and_
 from datetime import datetime
 
+CLEARANCE_KEYWORDS = ["clearance", "ts/sci", "top secret", "dod clearance", "secret clearance", "security clearance"]
+
+def requires_clearance(description: str) -> bool:
+    desc = description.lower()
+    return any(kw in desc for kw in CLEARANCE_KEYWORDS)
+
 from core.config import settings
 from core.database import get_db
 from apps.ever_apply.models import Job, JobMatch, User
@@ -83,6 +89,9 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
             if not summary or not description:
                 continue
 
+            if (user.preferences or {}).get("exclude_clearance") and requires_clearance(description):
+                continue
+
             result = await score_match(resume_context, description)
             score = result.get("score", 0)
             reason = result.get("reason", "")
@@ -118,11 +127,20 @@ async def trigger_score(db: AsyncSession = Depends(get_db)):
     jobs = jobs_result.scalars().all()
 
     matched = 0
-    for job in jobs:
-        for user in users:
+    scored = 0
+    for user in users:
+        # Only fetch jobs not already matched for this user — avoids redundant DeepSeek calls
+        already_matched = await db.execute(
+            select(JobMatch.job_id).where(JobMatch.user_id == user.id)
+        )
+        matched_job_ids = {row[0] for row in already_matched.fetchall()}
+
+        unscored_jobs = [j for j in jobs if j.id not in matched_job_ids]
+
+        for job in unscored_jobs:
             # Skip jobs that don't match user's remote preference
             remote_pref = (user.preferences or {}).get("remote_type")
-            if remote_pref and job.remote_type and job.remote_type.value != remote_pref:
+            if remote_pref and job.remote_type and job.remote_type != remote_pref:
                 continue
 
             # For onsite/hybrid, filter by preferred_location (city/state string match)
@@ -138,20 +156,18 @@ async def trigger_score(db: AsyncSession = Depends(get_db)):
             if not summary or not job.description:
                 continue
 
+            if (user.preferences or {}).get("exclude_clearance") and requires_clearance(job.description):
+                continue
+
             result = await score_match(resume_context, job.description)
             score = result.get("score", 0)
             reason = result.get("reason", "")
+            scored += 1
 
             min_score = (user.preferences or {}).get("min_score", 70)
             if score >= min_score:
-                existing_match = await db.execute(
-                    select(JobMatch).where(
-                        and_(JobMatch.user_id == user.id, JobMatch.job_id == job.id)
-                    )
-                )
-                if existing_match.scalar_one_or_none() is None:
-                    db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
-                    matched += 1
+                db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
+                matched += 1
 
     await db.commit()
-    return {"jobs_scored": len(jobs), "matches_created": matched}
+    return {"jobs_scored": scored, "matches_created": matched}

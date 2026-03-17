@@ -30,6 +30,7 @@ class UserPreferenceRead(BaseModel):
     salary_max: Optional[int] = None
     preferred_location: Optional[str] = None
     radius_miles: Optional[RadiusMiles] = None
+    exclude_clearance: bool = False
 
 
 class UserPreferencesUpdate(BaseModel):
@@ -39,6 +40,7 @@ class UserPreferencesUpdate(BaseModel):
     salary_max: Optional[int] = None
     preferred_location: Optional[str] = None
     radius_miles: Optional[RadiusMiles] = None
+    exclude_clearance: Optional[bool] = None
 
 
 class UserRead(BaseModel):
