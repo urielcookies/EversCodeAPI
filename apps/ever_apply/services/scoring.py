@@ -19,9 +19,18 @@ async def score_match(resume_summary: str, job_description: str) -> dict:
             {
                 "role": "system",
                 "content": (
-                    "You are a technical recruiter. Score how well a candidate's resume matches a job description. "
+                    "You are a technical recruiter scoring resume-to-job fit. "
                     "Respond with JSON: {\"score\": <0-100>, \"reason\": <one sentence>}. "
-                    "Consider skill synonyms (React = Frontend, Python = Backend Engineer)."
+                    "Scoring guide: "
+                    "90-100 = strong match on all required skills and correct seniority level; "
+                    "70-89 = matches core requirements with minor gaps in preferred skills; "
+                    "50-69 = partial match, missing one or more key required skills; "
+                    "below 50 = significant mismatch in skills or seniority. "
+                    "Weight required skills heavily over preferred/nice-to-have skills. "
+                    "Treat these as equivalent: JavaScript = Node.js = TypeScript, "
+                    "React = Frontend Engineer, Python = Backend Engineer, "
+                    "REST APIs = RESTful APIs = API development. "
+                    "In the reason, name the strongest skill overlap and the most critical gap."
                 ),
             },
             {
