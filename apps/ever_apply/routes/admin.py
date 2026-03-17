@@ -37,13 +37,23 @@ async def cleanup_jobs(db: AsyncSession = Depends(get_db)):
     )
     protected_ids = {row[0] for row in protected.fetchall()}
 
-    # Delete expired jobs not in the protected set
-    result = await db.execute(
-        delete(Job).where(
+    # Find expired job IDs that are safe to delete
+    expired = await db.execute(
+        select(Job.id).where(
             Job.expires_at < datetime.utcnow(),
             Job.id.not_in(protected_ids),
         )
     )
+    expired_ids = [row[0] for row in expired.fetchall()]
+
+    if not expired_ids:
+        return {"deleted": 0}
+
+    # Delete their matches first to satisfy the FK constraint
+    await db.execute(delete(JobMatch).where(JobMatch.job_id.in_(expired_ids)))
+
+    # Now delete the jobs
+    result = await db.execute(delete(Job).where(Job.id.in_(expired_ids)))
     await db.commit()
     return {"deleted": result.rowcount}
 

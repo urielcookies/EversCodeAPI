@@ -30,14 +30,21 @@ async def cleanup_job():
             )
             protected_ids = {row[0] for row in protected.fetchall()}
 
-            result = await db.execute(
-                delete(Job).where(
+            expired = await db.execute(
+                select(Job.id).where(
                     Job.expires_at < datetime.utcnow(),
                     Job.id.not_in(protected_ids),
                 )
             )
-            await db.commit()
-            logger.info(f"cleanup_job: deleted {result.rowcount} expired jobs")
+            expired_ids = [row[0] for row in expired.fetchall()]
+
+            if expired_ids:
+                await db.execute(delete(JobMatch).where(JobMatch.job_id.in_(expired_ids)))
+                result = await db.execute(delete(Job).where(Job.id.in_(expired_ids)))
+                await db.commit()
+                logger.info(f"cleanup_job: deleted {result.rowcount} expired jobs")
+            else:
+                logger.info("cleanup_job: nothing to delete")
     except Exception:
         logger.exception("cleanup_job failed")
 
