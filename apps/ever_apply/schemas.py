@@ -1,8 +1,18 @@
+import enum
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 from apps.ever_apply.models import MatchStatus, RemoteType, Seniority
+
+
+class RadiusMiles(int, enum.Enum):
+    FIVE = 5
+    TEN = 10
+    FIFTEEN = 15
+    TWENTY_FIVE = 25
+    FIFTY = 50
+    HUNDRED = 100
 
 
 class ParsedData(BaseModel):
@@ -18,6 +28,8 @@ class UserPreferenceRead(BaseModel):
     remote_type: RemoteType
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
+    preferred_location: Optional[str] = None
+    radius_miles: Optional[RadiusMiles] = None
 
 
 class UserPreferencesUpdate(BaseModel):
@@ -25,6 +37,8 @@ class UserPreferencesUpdate(BaseModel):
     remote_type: Optional[RemoteType] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
+    preferred_location: Optional[str] = None
+    radius_miles: Optional[RadiusMiles] = None
 
 
 class UserRead(BaseModel):

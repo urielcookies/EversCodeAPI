@@ -27,7 +27,7 @@ def _normalize_job(raw: dict, source: str) -> dict:
         "company": raw.get("company") or raw.get("companyName", ""),
         "description": raw.get("description") or raw.get("jobDescription") or raw.get("descriptionText") or raw.get("descriptionHtml", ""),
         "location": location,
-        "remote_type": raw.get("remote_type") or raw.get("workType", None),
+        "remote_type": "remote" if raw.get("isRemote") is True else ("onsite" if raw.get("isRemote") is False else raw.get("remote_type") or raw.get("workType")),
         "salary_min": raw.get("salary_min") or raw.get("salaryMin", None),
         "salary_max": raw.get("salary_max") or raw.get("salaryMax", None),
         "posted_at": posted_at,
@@ -44,7 +44,7 @@ async def fetch_indeed_jobs(keywords: list[str], location: str = "") -> list[dic
         "country": "us",
         "query": " ".join(keywords),
         "location": location,
-        "maxRows": 50,
+        "maxRows": settings.EVER_APPLY_MAX_JOBS,
         "fromDays": "1",
         "saveOnlyUniqueJobs": True,
     }

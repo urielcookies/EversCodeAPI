@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     R2_BUCKET_NAME: str              # e.g. "ever-apply-resumes"
     R2_PUBLIC_URL: str               # Public bucket URL (e.g. https://pub-xxx.r2.dev)
     EVER_APPLY_ADMIN_KEY: str        # Protect /admin/* routes
+    EVER_APPLY_MAX_JOBS: int = 50    # Max jobs to fetch per Apify run
 
     class Config:
         env_file = ".env"

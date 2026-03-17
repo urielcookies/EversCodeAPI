@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import APIKeyHeader
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, and_
 from datetime import datetime
 
 from core.config import settings
@@ -90,14 +90,14 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
             # Only create match if above user's min score threshold
             min_score = (user.preferences or {}).get("min_score", 70)
             if score >= min_score:
-                match = JobMatch(
-                    user_id=user.id,
-                    job_id=job.id,
-                    score=score,
-                    reason=reason,
+                existing_match = await db.execute(
+                    select(JobMatch).where(
+                        and_(JobMatch.user_id == user.id, JobMatch.job_id == job.id)
+                    )
                 )
-                db.add(match)
-                matched += 1
+                if existing_match.scalar_one_or_none() is None:
+                    db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
+                    matched += 1
 
     await db.commit()
     return {"jobs_fetched": len(jobs), "matches_created": matched}
@@ -120,6 +120,18 @@ async def trigger_score(db: AsyncSession = Depends(get_db)):
     matched = 0
     for job in jobs:
         for user in users:
+            # Skip jobs that don't match user's remote preference
+            remote_pref = (user.preferences or {}).get("remote_type")
+            if remote_pref and job.remote_type and job.remote_type.value != remote_pref:
+                continue
+
+            # For onsite/hybrid, filter by preferred_location (city/state string match)
+            preferred_location = (user.preferences or {}).get("preferred_location")
+            if remote_pref in ("onsite", "hybrid") and preferred_location and job.location:
+                city = preferred_location.split(",")[0].strip().lower()
+                if city not in job.location.lower():
+                    continue
+
             summary = user.parsed_data.get("summary", "")
             skills = ", ".join(user.parsed_data.get("skills", []))
             resume_context = f"Summary: {summary}\nSkills: {skills}"
@@ -132,14 +144,14 @@ async def trigger_score(db: AsyncSession = Depends(get_db)):
 
             min_score = (user.preferences or {}).get("min_score", 70)
             if score >= min_score:
-                match = JobMatch(
-                    user_id=user.id,
-                    job_id=job.id,
-                    score=score,
-                    reason=reason,
+                existing_match = await db.execute(
+                    select(JobMatch).where(
+                        and_(JobMatch.user_id == user.id, JobMatch.job_id == job.id)
+                    )
                 )
-                db.add(match)
-                matched += 1
+                if existing_match.scalar_one_or_none() is None:
+                    db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
+                    matched += 1
 
     await db.commit()
     return {"jobs_scored": len(jobs), "matches_created": matched}
