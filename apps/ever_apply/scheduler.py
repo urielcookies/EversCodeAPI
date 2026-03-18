@@ -64,6 +64,9 @@ async def fetch_and_score():
                 select(User).where(User.parsed_data.isnot(None))
             )
             users = users_result.scalars().all()
+            if not users:
+                logger.info("fetch_and_score: no users with resumes, skipping Apify call")
+                return
 
             # Build keyword list from all users' parsed titles — deduplicated, capped at 5
             all_titles = []

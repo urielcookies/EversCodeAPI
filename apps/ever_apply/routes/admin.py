@@ -70,6 +70,8 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
         select(User).where(User.parsed_data.isnot(None))
     )
     users = users_result.scalars().all()
+    if not users:
+        return {"jobs_fetched": 0, "matches_created": 0, "reason": "no users with resumes"}
 
     # Build keyword list from all users' parsed titles — deduplicated, capped at 5
     all_titles = []
