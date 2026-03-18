@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EverApply — Prototype</title>
+  <script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="pk_test_YWxsb3dlZC1tb25rZXktNDkuY2xlcmsuYWNjb3VudHMuZGV2JA"
+    src="https://allowed-monkey-49.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+    type="text/javascript">
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #0f0f17;
+      --surface-raised: #141420;
+      --border: #1a1a2e;
+      --border-bright: #252540;
+      --text: #c8c8e0;
+      --text-muted: #52527a;
+      --text-dim: #2e2e50;
+      --accent: #6366f1;
+      --accent-dim: #18183a;
+      --accent-glow: rgba(99, 102, 241, 0.12);
+      --accent-hover: #818cf8;
+      --green: #22c55e;
+      --green-dim: #071a0f;
+      --red: #ef4444;
+      --red-dim: #190606;
+      --yellow: #eab308;
+      --yellow-dim: #1a1500;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Inter', sans-serif;
+    }
+
+    body {
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    .header {
+      margin-bottom: 1.25rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .wordmark {
+      font-family: var(--sans);
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.03em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .wordmark-primary { color: var(--accent-hover); }
+
+    .wordmark-sep {
+      color: var(--text-dim);
+      font-weight: 400;
+      font-size: 0.9rem;
+    }
+
+    .wordmark-sub {
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 0.8rem;
+      font-family: var(--mono);
+    }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .env-tag {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      border: 1px solid var(--border-bright);
+      padding: 0.2rem 0.55rem;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+    }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 3px;
+      border: 1px solid;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .badge.signed-in  { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+    .badge.signed-out { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+    /* ── Clerk mount ─────────────────────────────────────────── */
+    #clerk-mount {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Card sections ───────────────────────────────────────── */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 0.75rem;
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-raised);
+    }
+
+    .section-label {
+      font-size: 0.62rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+
+    .section-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--border-bright);
+    }
+
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    button {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 0.4rem 0.85rem;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--accent-dim);
+      color: var(--accent-hover);
+      border-color: rgba(99, 102, 241, 0.35);
+    }
+    .btn-primary:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-muted);
+      border-color: var(--border-bright);
+    }
+    .btn-secondary:hover {
+      color: var(--text);
+      border-color: var(--text-muted);
+      background: var(--surface-raised);
+    }
+
+    .btn-danger {
+      background: var(--red-dim);
+      color: var(--red);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    .btn-danger:hover {
+      background: var(--red);
+      color: #fff;
+      border-color: var(--red);
+    }
+
+    /* ── Form fields ─────────────────────────────────────────── */
+    .field {
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .field:last-of-type { margin-bottom: 0.75rem; }
+
+    .field-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-align: right;
+      letter-spacing: 0.01em;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    input[type="file"],
+    select {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      background: var(--bg);
+      border: 1px solid var(--border-bright);
+      color: var(--text);
+      padding: 0.38rem 0.65rem;
+      border-radius: 4px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.12s;
+    }
+
+    input[type="number"]:focus,
+    input[type="text"]:focus,
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2352527a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.65rem center;
+      padding-right: 2rem;
+    }
+
+    input[type="file"] {
+      padding: 0.3rem 0.5rem;
+      cursor: pointer;
+    }
+
+    input[type="file"]::file-selector-button {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      background: var(--accent-dim);
+      color: var(--accent-hover);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-radius: 3px;
+      padding: 0.18rem 0.55rem;
+      cursor: pointer;
+      margin-right: 0.65rem;
+    }
+
+    /* ── Response ────────────────────────────────────────────── */
+    .response-section {
+      margin-top: 0.75rem;
+    }
+
+    .response-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .response-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.55rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-raised);
+    }
+
+    .response-label {
+      font-size: 0.62rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+
+    .response-status {
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      letter-spacing: 0.04em;
+    }
+
+    #response {
+      padding: 1rem 1.1rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      min-height: 90px;
+      font-size: 0.72rem;
+      line-height: 1.75;
+      color: var(--text);
+      border-left: 3px solid var(--border-bright);
+      transition: border-left-color 0.15s;
+    }
+
+    #response.error {
+      border-left-color: var(--red);
+      color: #fca5a5;
+    }
+
+    #response.ok {
+      border-left-color: var(--green);
+    }
+
+    #response.loading {
+      border-left-color: var(--yellow);
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="header">
+      <div class="header-top">
+        <div class="wordmark">
+          <span class="wordmark-primary">EverApply</span>
+          <span class="wordmark-sep">/</span>
+          <span class="wordmark-sub">api tester</span>
+        </div>
+        <div class="header-meta">
+          <span class="env-tag">localhost:8000</span>
+          <span id="auth-status" class="badge signed-out">signed out</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="clerk-mount"></div>
+
+    <div id="controls" style="display:none">
+
+      <div class="section">
+        <div class="section-header">
+          <span class="section-label">User</span>
+          <span class="section-dot"></span>
+        </div>
+        <div class="section-body">
+          <div class="btn-group">
+            <button class="btn-primary" onclick="callMe()">POST /users/me</button>
+            <button class="btn-secondary" onclick="getPreferences()">GET /users/preferences</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <span class="section-label">Resume</span>
+          <span class="section-dot"></span>
+        </div>
+        <div class="section-body">
+          <div class="field">
+            <span class="field-label">file</span>
+            <input type="file" id="resume-file" accept=".pdf" />
+          </div>
+          <div class="btn-group">
+            <button class="btn-primary" onclick="uploadResume()">POST /users/resume</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <span class="section-label">Preferences</span>
+          <span class="section-dot"></span>
+        </div>
+        <div class="section-body">
+          <div class="field">
+            <span class="field-label">min_score</span>
+            <input id="pref-score" type="number" value="70" />
+          </div>
+          <div class="field">
+            <span class="field-label">remote_type</span>
+            <select id="pref-remote">
+              <option value="">— not set —</option>
+              <option value="remote" selected>remote</option>
+              <option value="hybrid">hybrid</option>
+              <option value="onsite">onsite</option>
+            </select>
+          </div>
+          <div class="field" id="field-location">
+            <span class="field-label">location</span>
+            <input type="text" id="pref-location" placeholder="e.g. Austin, TX" />
+          </div>
+          <div class="field" id="field-radius">
+            <span class="field-label">radius (mi)</span>
+            <select id="pref-radius">
+              <option value="5">5 mi</option>
+              <option value="10">10 mi</option>
+              <option value="15">15 mi</option>
+              <option value="25" selected>25 mi</option>
+              <option value="50">50 mi</option>
+              <option value="100">100 mi</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="field-label">exclude clearance</span>
+            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
+              <input type="checkbox" id="pref-exclude-clearance" />
+              <span style="font-size:0.7rem;color:var(--text-muted)">skip jobs requiring security clearance</span>
+            </label>
+          </div>
+          <div class="btn-group">
+            <button class="btn-primary" onclick="updatePreferences()">PUT /users/preferences</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <span class="section-label">Matches</span>
+          <span class="section-dot"></span>
+        </div>
+        <div class="section-body">
+          <div class="field">
+            <span class="field-label">status</span>
+            <select id="match-status">
+              <option value="new">new</option>
+              <option value="saved">saved</option>
+              <option value="applied">applied</option>
+              <option value="dismissed">dismissed</option>
+            </select>
+          </div>
+          <div class="btn-group">
+            <button class="btn-primary" onclick="getMatches()">GET /matches</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <span class="section-label">Admin</span>
+          <span class="section-dot"></span>
+        </div>
+        <div class="section-body">
+          <div class="btn-group">
+            <button class="btn-secondary" onclick="adminFetch()">POST /admin/fetch</button>
+            <button class="btn-primary" onclick="adminScore()">POST /admin/score</button>
+            <button class="btn-danger" onclick="adminCleanup()">POST /admin/cleanup-jobs</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="response-section">
+      <div class="response-card">
+        <div class="response-card-header">
+          <span class="response-label">Response</span>
+          <span class="response-status">awaiting request</span>
+        </div>
+        <div id="response">—</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const BASE = "http://localhost:8000/ever-apply";
+    const ADMIN_KEY = "everapply-admin-2026";
+
+    let clerk;
+
+    async function initClerk() {
+      await window.__clerk_loaded;
+      clerk = window.Clerk;
+      await clerk.load();
+
+      if (clerk.user) {
+        showSignedIn();
+      } else {
+        clerk.mountSignIn(document.getElementById("clerk-mount"));
+        clerk.addListener(({ user }) => {
+          if (user) showSignedIn();
+        });
+      }
+    }
+
+    function showSignedIn() {
+      document.getElementById("clerk-mount").innerHTML = "";
+      clerk.mountUserButton(document.getElementById("clerk-mount"));
+      document.getElementById("auth-status").textContent = `Signed in as ${clerk.user.primaryEmailAddress?.emailAddress}`;
+      document.getElementById("auth-status").className = "signed-in";
+      document.getElementById("controls").style.display = "block";
+    }
+
+    async function getToken() {
+      return await clerk.session.getToken();
+    }
+
+    function setLoading(msg) {
+      const el = document.getElementById("response");
+      el.textContent = `⏳ ${msg}`;
+      el.className = "loading";
+    }
+
+    async function call(method, path, body = null, isFile = false) {
+      setLoading(`${method} ${path} …`);
+      const token = await getToken();
+      const headers = { "Authorization": `Bearer ${token}` };
+      if (!isFile) headers["Content-Type"] = "application/json";
+
+      const res = await fetch(`${BASE}${path}`, {
+        method,
+        headers,
+        body: isFile ? body : (body ? JSON.stringify(body) : null),
+      });
+
+      const el = document.getElementById("response");
+      try {
+        const data = await res.json();
+        el.textContent = JSON.stringify(data, null, 2);
+        el.className = res.ok ? "ok" : "error";
+      } catch {
+        el.textContent = `${res.status} ${res.statusText}`;
+        el.className = "error";
+      }
+    }
+
+    async function adminCall(path) {
+      setLoading(`POST ${path} …`);
+      const res = await fetch(`${BASE}${path}`, {
+        method: "POST",
+        headers: { "X-Admin-Key": ADMIN_KEY },
+      });
+      const el = document.getElementById("response");
+      const data = await res.json();
+      el.textContent = JSON.stringify(data, null, 2);
+      el.className = res.ok ? "ok" : "error";
+    }
+
+    function toggleLocationFields() {
+      const isRemote = document.getElementById("pref-remote").value === "remote";
+      document.getElementById("field-location").style.display = isRemote ? "none" : "";
+      document.getElementById("field-radius").style.display = isRemote ? "none" : "";
+    }
+
+    async function callMe() { await call("POST", "/users/me"); }
+    async function getPreferences() { await call("GET", "/users/preferences"); }
+    async function getMatches() {
+      const status = document.getElementById("match-status").value;
+      await call("GET", `/matches?status=${status}`);
+    }
+    async function updatePreferences() {
+      const remoteType = document.getElementById("pref-remote").value;
+      const isRemote = remoteType === "remote";
+      const location = document.getElementById("pref-location").value.trim();
+      const radius = document.getElementById("pref-radius").value;
+      const body = {
+        min_score: parseFloat(document.getElementById("pref-score").value),
+      };
+      if (remoteType) body.remote_type = remoteType;
+      body.preferred_location = isRemote ? null : (location || null);
+      body.radius_miles = isRemote ? null : (radius ? parseInt(radius, 10) : null);
+      body.exclude_clearance = document.getElementById("pref-exclude-clearance").checked;
+      await call("PUT", "/users/preferences", body);
+    }
+    async function uploadResume() {
+      const file = document.getElementById("resume-file").files[0];
+      if (!file) { alert("Select a PDF first"); return; }
+      const form = new FormData();
+      form.append("file", file);
+      await call("POST", "/users/resume", form, true);
+    }
+    async function adminFetch() { await adminCall("/admin/fetch"); }
+    async function adminScore() { await adminCall("/admin/score"); }
+    async function adminCleanup() { await adminCall("/admin/cleanup-jobs"); }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("pref-remote").addEventListener("change", toggleLocationFields);
+      toggleLocationFields();
+    });
+
+    window.addEventListener("load", initClerk);
+  </script>
+</body>
+</html>

@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqladmin import Admin
 
@@ -70,6 +72,14 @@ admin.add_view(JobMatchAdmin)
 # app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+templates = Jinja2Templates(directory="templates")
+
+
 @app.get("/")
 async def root():
     return {"status": "ok", "env": settings.ENV}
+
+
+@app.get("/ever-apply/test", response_class=HTMLResponse)
+async def ever_apply_test(request: Request):
+    return templates.TemplateResponse("ever_apply_test.html", {"request": request})

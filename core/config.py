@@ -20,8 +20,15 @@ class Settings(BaseSettings):
     R2_BUCKET_NAME: str              # e.g. "ever-apply-resumes"
     R2_PUBLIC_URL: str               # Public bucket URL (e.g. https://pub-xxx.r2.dev)
     EVER_APPLY_ADMIN_KEY: str        # Protect /admin/* routes
-    EVER_APPLY_MAX_JOBS: int = 50    # Max jobs to fetch per Apify run
+    EVER_APPLY_MAX_JOBS: int = 50             # Max jobs to fetch per Apify run
     EVER_APPLY_SCHEDULER_ENABLED: bool = True  # Set to false to disable cron jobs
+    EVER_APPLY_PRICE: int = 40                # Monthly subscription price in USD
+    EVER_APPLY_APIFY_PPR: float = 5.0         # Apify price per 1,000 results (PPR)
+    EVER_APPLY_DEEPSEEK_COST: float = 1.47    # Estimated DeepSeek cost per active user/month
+                                               # Based on: 6000 jobs x 800 input tokens x $0.28/1M
+                                               #         + 6000 jobs x 50 output tokens x $0.42/1M
+                                               # Update if pricing changes: platform.deepseek.com/docs/pricing
+    EVER_APPLY_TRIAL_DAYS: int = 7            # Free trial length in days
 
     class Config:
         env_file = ".env"

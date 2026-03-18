@@ -3,7 +3,8 @@ from apps.ever_apply.models import User, Job, JobMatch
 
 
 class UserAdmin(ModelView, model=User):
-    column_list = [User.id, User.clerk_user_id, User.email, User.resume_url, User.created_at]
+    column_list = [User.id, User.clerk_user_id, User.email, User.resume_url, User.is_free, User.created_at]
+    column_editable_list = [User.is_free]
     column_searchable_list = [User.email, User.clerk_user_id]
     name = "User"
     name_plural = "Users"
