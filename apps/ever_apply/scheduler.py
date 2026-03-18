@@ -1,6 +1,8 @@
 import logging
+from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from core.config import settings
 
 logger = logging.getLogger("ever_apply.scheduler")
 
@@ -12,6 +14,14 @@ CLEARANCE_KEYWORDS = ["clearance", "ts/sci", "top secret", "dod clearance", "sec
 def _requires_clearance(description: str) -> bool:
     desc = description.lower()
     return any(kw in desc for kw in CLEARANCE_KEYWORDS)
+
+
+def _is_eligible(user) -> bool:
+    """Returns True if this user should receive an Apify fetch run."""
+    if user.is_free:
+        return True
+    trial_cutoff = datetime.utcnow() - timedelta(days=settings.EVER_APPLY_TRIAL_DAYS)
+    return user.created_at >= trial_cutoff
 
 
 async def cleanup_job():
@@ -50,11 +60,11 @@ async def cleanup_job():
 
 
 async def fetch_and_score():
-    """Fetch new jobs from Indeed and score them against all users."""
+    """Fetch new jobs from Indeed and score them — one Apify call per eligible user."""
     from core.database import AsyncSessionLocal
     from sqlalchemy import select, and_
     from apps.ever_apply.models import Job, JobMatch, User
-    from apps.ever_apply.services.scraper import fetch_all_jobs
+    from apps.ever_apply.services.scraper import fetch_indeed_jobs
     from apps.ever_apply.services.scoring import score_match
 
     logger.info("fetch_and_score: starting")
@@ -68,30 +78,38 @@ async def fetch_and_score():
                 logger.info("fetch_and_score: no users with resumes, skipping Apify call")
                 return
 
-            # Build keyword list from all users' parsed titles — deduplicated, capped at 5
-            all_titles = []
-            for u in users:
-                all_titles += (u.parsed_data or {}).get("titles", [])
-            keywords = list(dict.fromkeys(all_titles))[:5] or ["software engineer", "developer"]
-
-            jobs = await fetch_all_jobs(keywords=keywords)
-            logger.info(f"fetch_and_score: fetched {len(jobs)} jobs with keywords {keywords}, scoring against {len(users)} users")
-
+            total_jobs = 0
             matched = 0
-            for job_data in jobs:
-                if not job_data.get("source_url"):
+            for user in users:
+                if not _is_eligible(user):
+                    logger.info(f"fetch_and_score: skipping user {user.id} — trial expired")
                     continue
 
-                existing = await db.execute(
-                    select(Job).where(Job.source_url == job_data["source_url"])
-                )
-                job = existing.scalar_one_or_none()
-                if not job:
-                    job = Job(**{k: v for k, v in job_data.items() if k != "raw_json"}, raw_json=job_data.get("raw_json"))
-                    db.add(job)
-                    await db.flush()
+                # User-specific keywords from their parsed titles
+                keywords = list(dict.fromkeys(user.parsed_data.get("titles", [])))[:5] or ["software engineer", "developer"]
 
-                for user in users:
+                # Location: only pass it for onsite/hybrid users
+                prefs = user.preferences or {}
+                remote_pref = prefs.get("remote_type")
+                location = prefs.get("preferred_location", "") if remote_pref in ("onsite", "hybrid") else ""
+
+                logger.info(f"fetch_and_score: fetching for user {user.id} — keywords={keywords}, location={location!r}")
+                jobs = await fetch_indeed_jobs(keywords, location)
+                total_jobs += len(jobs)
+
+                for job_data in jobs:
+                    if not job_data.get("source_url"):
+                        continue
+
+                    existing = await db.execute(
+                        select(Job).where(Job.source_url == job_data["source_url"])
+                    )
+                    job = existing.scalar_one_or_none()
+                    if not job:
+                        job = Job(**{k: v for k, v in job_data.items() if k != "raw_json"}, raw_json=job_data.get("raw_json"))
+                        db.add(job)
+                        await db.flush()
+
                     summary = user.parsed_data.get("summary", "")
                     skills = ", ".join(user.parsed_data.get("skills", []))
                     resume_context = f"Summary: {summary}\nSkills: {skills}"
@@ -99,20 +117,8 @@ async def fetch_and_score():
                     if not summary or not description:
                         continue
 
-                    # Remote type filter
-                    remote_pref = (user.preferences or {}).get("remote_type")
-                    if remote_pref and job.remote_type and job.remote_type != remote_pref:
-                        continue
-
-                    # Location filter for onsite/hybrid
-                    preferred_location = (user.preferences or {}).get("preferred_location")
-                    if remote_pref in ("onsite", "hybrid") and preferred_location and job.location:
-                        city = preferred_location.split(",")[0].strip().lower()
-                        if city not in job.location.lower():
-                            continue
-
                     # Clearance filter
-                    if (user.preferences or {}).get("exclude_clearance") and _requires_clearance(description):
+                    if prefs.get("exclude_clearance") and _requires_clearance(description):
                         continue
 
                     # Skip if already matched
@@ -128,13 +134,13 @@ async def fetch_and_score():
                     score = result.get("score", 0)
                     reason = result.get("reason", "")
 
-                    min_score = (user.preferences or {}).get("min_score", 70)
+                    min_score = prefs.get("min_score", 70)
                     if score >= min_score:
                         db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
                         matched += 1
 
             await db.commit()
-            logger.info(f"fetch_and_score: done — {matched} new matches created")
+            logger.info(f"fetch_and_score: done — {total_jobs} jobs fetched, {matched} new matches created")
     except Exception:
         logger.exception("fetch_and_score failed")
 
