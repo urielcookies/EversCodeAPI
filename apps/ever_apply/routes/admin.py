@@ -139,6 +139,8 @@ async def trigger_score(db: AsyncSession = Depends(get_db)):
         select(User).where(User.parsed_data.isnot(None))
     )
     users = users_result.scalars().all()
+    if not users:
+        return {"jobs_scored": 0, "matches_created": 0, "reason": "no users with resumes"}
 
     jobs_result = await db.execute(select(Job).where(Job.description != ""))
     jobs = jobs_result.scalars().all()

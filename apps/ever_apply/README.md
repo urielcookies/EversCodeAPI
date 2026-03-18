@@ -11,7 +11,7 @@ apps/ever_apply/
 ├── models.py          # SQLAlchemy ORM — User, Job, JobMatch
 ├── schemas.py         # Pydantic request/response + enums (RadiusMiles, etc.)
 ├── admin.py           # SQLAdmin views (registered in main.py)
-├── scheduler.py       # APScheduler cron jobs (fetch + score + cleanup)
+├── scheduler.py       # APScheduler cron jobs (fetch + score + cleanup-jobs)
 ├── services/
 │   ├── clerk.py       # Clerk JWT verification (RS256 via JWKS)
 │   ├── resume.py      # PDF extraction (pdfplumber) + DeepSeek parsing + R2 upload
@@ -21,7 +21,7 @@ apps/ever_apply/
     ├── ping.py        # GET /ping — health check
     ├── users.py       # User upsert, resume upload, preferences
     ├── matches.py     # List + update match status
-    └── admin.py       # Backend ops — fetch, score, cleanup (X-Admin-Key protected)
+    └── admin.py       # Backend ops — fetch, score, cleanup-jobs (X-Admin-Key protected)
 ```
 
 **Prefix:** `/ever-apply` (registered in `main.py`)
@@ -35,7 +35,7 @@ apps/ever_apply/
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/users/me` | Upsert user from Clerk JWT (first login creates record) |
-| `POST` | `/users/resume` | Upload PDF → extract text → DeepSeek parse → store in R2 |
+| `POST` | `/users/resume` | Upload PDF → extract text → DeepSeek parse → store in R2 (replaces existing) |
 | `GET`  | `/users/preferences` | Return preferences JSONB |
 | `PUT`  | `/users/preferences` | Update preferences (partial update) |
 
@@ -50,7 +50,7 @@ apps/ever_apply/
 |--------|------|-------------|
 | `POST` | `/admin/fetch` | Scrape Indeed via Apify → score all users → create matches |
 | `POST` | `/admin/score` | Score only unmatched jobs per user — no Apify call |
-| `POST` | `/admin/cleanup-jobs` | Delete expired jobs not saved/applied |
+| `POST` | `/admin/cleanup-jobs` | Delete expired jobs not saved/applied (deletes orphaned matches first) |
 
 ---
 
@@ -58,7 +58,8 @@ apps/ever_apply/
 
 ```
 POST /admin/fetch
-  └─ scraper.py        fetch_all_jobs()  →  N jobs from Indeed (EVER_APPLY_MAX_JOBS, default 50)
+  └─ admin.py          early exit if no users have a parsed resume (skips Apify call)
+  └─ scraper.py        fetch_all_jobs()  →  N jobs from Indeed (EVER_APPLY_MAX_JOBS, default 100)
   └─ admin.py          upsert jobs into everapply_jobs (skip duplicates by source_url)
   └─ scoring.py        score_match(resume_context, job.description)  →  {score, reason}
   └─ admin.py          filters applied before scoring:
@@ -69,6 +70,7 @@ POST /admin/fetch
   └─ admin.py          create JobMatch if score >= user.min_score
 
 POST /admin/score      (same filtering + scoring, skips Apify — only scores unmatched jobs)
+                       early exit if no users have a parsed resume
 
 GET /matches?status=new
   └─ returns JobMatch rows joined to Job, filtered by user + status, sorted by score desc
@@ -79,13 +81,14 @@ GET /matches?status=new
 ## Scheduler
 
 Runs inside the FastAPI process via APScheduler (no Redis/Celery needed).
+Toggle via `EVER_APPLY_SCHEDULER_ENABLED` env var.
 
 | Schedule | Job |
 |----------|-----|
-| Mon–Fri 6:55am | cleanup |
+| Mon–Fri 6:55am | cleanup-jobs |
 | Mon–Fri 7:00am | fetch + score |
 | Mon–Fri 10:00am | fetch + score |
-| Sat–Sun 6:55am | cleanup |
+| Sat–Sun 6:55am | cleanup-jobs |
 | Sat–Sun 7:00am | fetch + score |
 
 ---
@@ -148,20 +151,40 @@ Stored as JSONB on `everapply_users.preferences`.
 
 ---
 
+## User Model Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Primary key |
+| `clerk_user_id` | str | Clerk user ID from JWT |
+| `email` | str | User email |
+| `resume_url` | str | R2 public URL of uploaded resume |
+| `parsed_data` | JSONB | DeepSeek-parsed resume (skills, titles, seniority, summary) |
+| `preferences` | JSONB | User preferences (see above) |
+| `is_free` | bool | Bypasses payment gating — for owner/test users. Toggle in SQLAdmin. |
+| `created_at` | datetime | Account creation timestamp (used for trial period calculation) |
+
+---
+
 ## Environment Variables
 
 ```
-CLERK_JWKS_URL           # Clerk Dashboard → API Keys
+CLERK_JWKS_URL                # Clerk Dashboard → API Keys
 DEEPSEEK_API_KEY
-DEEPSEEK_BASE_URL        # https://api.deepseek.com
+DEEPSEEK_BASE_URL             # https://api.deepseek.com
 APIFY_API_TOKEN
-EVER_APPLY_MAX_JOBS      # Max jobs per Apify fetch run (default: 50)
-R2_ACCOUNT_ID            # Cloudflare Account ID
+EVER_APPLY_MAX_JOBS           # Max jobs per Apify fetch run (default: 100)
+EVER_APPLY_SCHEDULER_ENABLED  # Set to false to disable cron jobs (default: true)
+R2_ACCOUNT_ID                 # Cloudflare Account ID
 R2_ACCESS_KEY_ID
 R2_SECRET_ACCESS_KEY
-R2_BUCKET_NAME           # e.g. ever-apply-resumes
-R2_PUBLIC_URL            # e.g. https://pub-xxx.r2.dev
-EVER_APPLY_ADMIN_KEY     # Static key for /admin/* routes
+R2_BUCKET_NAME                # e.g. ever-apply-resumes
+R2_PUBLIC_URL                 # e.g. https://pub-xxx.r2.dev
+EVER_APPLY_ADMIN_KEY          # Static key for /admin/* routes
+EVER_APPLY_PRICE              # Monthly subscription price in USD (default: 40)
+EVER_APPLY_APIFY_PPR          # Apify price per 1,000 results (default: 5.0)
+EVER_APPLY_DEEPSEEK_COST      # Estimated DeepSeek cost per active user/month (default: 1.47)
+EVER_APPLY_TRIAL_DAYS         # Free trial length in days (default: 7)
 ```
 
 ---
@@ -175,9 +198,12 @@ EVER_APPLY_ADMIN_KEY     # Static key for /admin/* routes
 | JSONB for preferences | Schema-flexible; no migration needed to add new preference fields |
 | DeepSeek over embeddings | Handles synonym reasoning natively — no pgvector, no numpy |
 | Score only unmatched jobs | Avoids redundant DeepSeek calls — re-running `/admin/score` is safe and cheap |
+| Early exit if no users | Skips Apify call entirely if no users have resumes — avoids wasting credits |
 | Clearance keyword filter | Pre-filters before DeepSeek call — saves tokens, no cost for skipped jobs |
+| Delete matches before jobs | FK constraint requires orphaned matches deleted first in cleanup-jobs |
 | APScheduler over Celery | No Redis dependency for Phase 1; swap if scale demands it |
 | Cloudflare R2 | S3-compatible (boto3 works unchanged), zero egress fees |
 | Admin routes as HTTP endpoints | Scheduler + manual curl + future automation all share the same code path |
 | JWKS in-memory cache (1h TTL) | Avoids hitting Clerk's servers on every authenticated request |
 | Per-user keyword aggregation | Fetch uses real job titles from resumes instead of hardcoded strings |
+| `is_free` flag on User | Bypasses payment gating for owner/test users — toggleable in SQLAdmin |
