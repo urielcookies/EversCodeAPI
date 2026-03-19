@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str
     ADMIN_PASSWORD: str
     ENV: str = "development"
+    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     BLOG_DEMO_API_KEY: str
 
     # ever_apply
