@@ -96,7 +96,7 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
         remote_pref = prefs.get("remote_type")
         location = prefs.get("preferred_location", "") if remote_pref in ("onsite", "hybrid") else ""
 
-        jobs = await fetch_indeed_jobs(keywords, location)
+        jobs = await fetch_indeed_jobs(keywords, location, remote=remote_pref == "remote")
         total_jobs += len(jobs)
 
         for job_data in jobs:
@@ -136,7 +136,7 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
             if existing_match.scalar_one_or_none() is not None:
                 continue
 
-            result = await score_match(resume_context, description)
+            result = await score_match(resume_context, description, user_preferences=prefs)
             score = result.get("score", 0)
             reason = result.get("reason", "")
             min_score = prefs.get("min_score", 70)
@@ -200,7 +200,7 @@ async def trigger_score(db: AsyncSession = Depends(get_db)):
             if (user.preferences or {}).get("exclude_clearance") and requires_clearance(job.description):
                 continue
 
-            result = await score_match(resume_context, job.description)
+            result = await score_match(resume_context, job.description, user_preferences=user.preferences or {})
             score = result.get("score", 0)
             reason = result.get("reason", "")
             scored += 1

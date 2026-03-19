@@ -94,7 +94,7 @@ async def fetch_and_score():
                 location = prefs.get("preferred_location", "") if remote_pref in ("onsite", "hybrid") else ""
 
                 logger.info(f"fetch_and_score: fetching for user {user.id} — keywords={keywords}, location={location!r}")
-                jobs = await fetch_indeed_jobs(keywords, location)
+                jobs = await fetch_indeed_jobs(keywords, location, remote=remote_pref == "remote")
                 total_jobs += len(jobs)
 
                 for job_data in jobs:
@@ -134,7 +134,7 @@ async def fetch_and_score():
                     if existing_match.scalar_one_or_none() is not None:
                         continue
 
-                    result = await score_match(resume_context, description)
+                    result = await score_match(resume_context, description, user_preferences=prefs)
                     score = result.get("score", 0)
                     reason = result.get("reason", "")
 

@@ -51,16 +51,17 @@ def _normalize_job(raw: dict, source: str) -> dict:
         or ""
     )
 
-    # Remote type — prefer isRemote boolean, fall back to attributes array (e.g. ["Remote", "Full-time"])
+    # Remote type — check attributes array first (more specific), fall back to isRemote boolean
+    # isRemote=False only means "not fully remote" — could be hybrid, so don't assume onsite
     attributes = [a.lower() for a in (raw.get("attributes") or [])]
-    if raw.get("isRemote") is True:
-        remote_type = "remote"
-    elif raw.get("isRemote") is False:
-        remote_type = "onsite"
-    elif "remote" in attributes:
+    if "remote" in attributes:
         remote_type = "remote"
     elif "hybrid" in attributes:
         remote_type = "hybrid"
+    elif "on-site" in attributes or "onsite" in attributes:
+        remote_type = "onsite"
+    elif raw.get("isRemote") is True:
+        remote_type = "remote"
     else:
         remote_type = raw.get("remote_type") or raw.get("workType") or None
 
@@ -80,11 +81,15 @@ def _normalize_job(raw: dict, source: str) -> dict:
     }
 
 
-async def fetch_indeed_jobs(keywords: list[str], location: str = "") -> list[dict]:
+async def fetch_indeed_jobs(keywords: list[str], location: str = "", remote: bool = False) -> list[dict]:
     """Scrape Indeed jobs via Apify actor borderline/indeed-scraper (PPR)."""
+    query = " ".join(keywords)
+    if remote:
+        query += " remote"
+
     run_input = {
         "country": "us",
-        "query": " ".join(keywords),
+        "query": query,
         "location": location,
         "maxRows": settings.EVER_APPLY_MAX_JOBS,
         "fromDays": "1",
