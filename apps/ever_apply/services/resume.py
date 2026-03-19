@@ -29,9 +29,10 @@ async def delete_resume(resume_url: str) -> None:
 
 
 # 1b. Upload PDF to R2, return public URL
-async def upload_resume(file_bytes: bytes, filename: str) -> str:
+async def upload_resume(file_bytes: bytes, filename: str, clerk_user_id: str) -> str:
     client = get_r2_client()
-    key = f"resumes/{filename}"
+    prefix = "development/resumes" if settings.ENV == "development" else "resumes"
+    key = f"{prefix}/{clerk_user_id}/{filename}"
     client.put_object(
         Bucket=settings.R2_BUCKET_NAME,
         Key=key,

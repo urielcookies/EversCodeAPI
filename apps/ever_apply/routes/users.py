@@ -100,7 +100,7 @@ async def upload_user_resume(
         await delete_resume(user.resume_url)
 
     # 2. Upload to R2
-    resume_url = await upload_resume(file_bytes, file.filename)
+    resume_url = await upload_resume(file_bytes, file.filename, clerk_user["sub"])
 
     # 3. Extract text from PDF
     text = extract_text(file_bytes)
