@@ -7,7 +7,11 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str
     ADMIN_PASSWORD: str
     ENV: str = "development"
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: str = "http://localhost:3000"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
     BLOG_DEMO_API_KEY: str
 
     # ever_apply
