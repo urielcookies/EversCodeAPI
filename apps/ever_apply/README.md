@@ -48,8 +48,8 @@ apps/ever_apply/
 ### Admin (`X-Admin-Key` required)
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/admin/fetch` | Scrape Indeed via Apify → score all users → create matches |
-| `POST` | `/admin/score` | Score only unmatched jobs per user — no Apify call |
+| `POST` | `/admin/fetch-jobs` | Scrape Indeed via Apify → score all users → create matches |
+| `POST` | `/admin/score-jobs` | Score only unmatched jobs per user — no Apify call |
 | `POST` | `/admin/cleanup-jobs` | Delete expired jobs not saved/applied (deletes orphaned matches first) |
 
 ---
@@ -57,7 +57,7 @@ apps/ever_apply/
 ## Pipeline
 
 ```
-POST /admin/fetch
+POST /admin/fetch-jobs
   └─ admin.py          early exit if no users have a parsed resume (skips Apify call)
   └─ scraper.py        fetch_all_jobs()  →  N jobs from Indeed (EVER_APPLY_MAX_JOBS, default 100)
   └─ admin.py          upsert jobs into everapply_jobs (skip duplicates by source_url)
@@ -69,7 +69,7 @@ POST /admin/fetch
                          - skip if JobMatch already exists for this user+job pair
   └─ admin.py          create JobMatch if score >= user.min_score
 
-POST /admin/score      (same filtering + scoring, skips Apify — only scores unmatched jobs)
+POST /admin/score-jobs      (same filtering + scoring, skips Apify — only scores unmatched jobs)
                        early exit if no users have a parsed resume
 
 GET /matches?status=new
@@ -108,7 +108,7 @@ DeepSeek (`deepseek-chat`) acts as the scoring engine. No vector math or embeddi
 
 **Keywords:** Built from aggregated `parsed_data.titles` across all users (deduped, max 5). Falls back to `["software engineer", "developer"]` if no titles found.
 
-**Cost control:** `/admin/score` only calls DeepSeek for jobs the user has not been scored against yet. Re-running it on an already-scored dataset fires zero API calls.
+**Cost control:** `/admin/score-jobs` only calls DeepSeek for jobs the user has not been scored against yet. Re-running it on an already-scored dataset fires zero API calls.
 
 ---
 
@@ -197,7 +197,7 @@ EVER_APPLY_TRIAL_DAYS         # Free trial length in days (default: 7)
 | `everapply_` table prefix | Avoids collision with other apps' `users`/`jobs` tables |
 | JSONB for preferences | Schema-flexible; no migration needed to add new preference fields |
 | DeepSeek over embeddings | Handles synonym reasoning natively — no pgvector, no numpy |
-| Score only unmatched jobs | Avoids redundant DeepSeek calls — re-running `/admin/score` is safe and cheap |
+| Score only unmatched jobs | Avoids redundant DeepSeek calls — re-running `/admin/score-jobs` is safe and cheap |
 | Early exit if no users | Skips Apify call entirely if no users have resumes — avoids wasting credits |
 | Clearance keyword filter | Pre-filters before DeepSeek call — saves tokens, no cost for skipped jobs |
 | Delete matches before jobs | FK constraint requires orphaned matches deleted first in cleanup-jobs |

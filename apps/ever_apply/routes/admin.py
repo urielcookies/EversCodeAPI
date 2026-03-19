@@ -67,9 +67,9 @@ async def cleanup_jobs(db: AsyncSession = Depends(get_db)):
     return {"deleted": result.rowcount}
 
 
-# POST /admin/fetch
+# POST /admin/fetch-jobs
 # Manually trigger a scrape + score run for all eligible users (per-user Apify call)
-@router.post("/fetch", dependencies=[Depends(verify_admin_key)])
+@router.post("/fetch-jobs", dependencies=[Depends(verify_admin_key)])
 async def trigger_fetch(db: AsyncSession = Depends(get_db)):
     from apps.ever_apply.services.scraper import fetch_indeed_jobs
     from apps.ever_apply.services.scoring import score_match
@@ -120,6 +120,10 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
             if not summary or not description:
                 continue
 
+            # Remote type filter
+            if remote_pref and job.remote_type and job.remote_type != remote_pref:
+                continue
+
             if prefs.get("exclude_clearance") and requires_clearance(description):
                 continue
 
@@ -144,9 +148,9 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
     return {"jobs_fetched": total_jobs, "matches_created": matched}
 
 
-# POST /admin/score
+# POST /admin/score-jobs
 # Score existing DB jobs against all users — no Apify call
-@router.post("/score", dependencies=[Depends(verify_admin_key)])
+@router.post("/score-jobs", dependencies=[Depends(verify_admin_key)])
 async def trigger_score(db: AsyncSession = Depends(get_db)):
     from apps.ever_apply.services.scoring import score_match
 

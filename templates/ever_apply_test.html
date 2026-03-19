@@ -476,8 +476,8 @@
         </div>
         <div class="section-body">
           <div class="btn-group">
-            <button class="btn-secondary" onclick="adminFetch()">POST /admin/fetch</button>
-            <button class="btn-primary" onclick="adminScore()">POST /admin/score</button>
+            <button class="btn-secondary" onclick="adminFetch()">POST /admin/fetch-jobs</button>
+            <button class="btn-primary" onclick="adminScore()">POST /admin/score-jobs</button>
             <button class="btn-danger" onclick="adminCleanup()">POST /admin/cleanup-jobs</button>
           </div>
         </div>
@@ -604,8 +604,8 @@
       form.append("file", file);
       await call("POST", "/users/resume", form, true);
     }
-    async function adminFetch() { await adminCall("/admin/fetch"); }
-    async function adminScore() { await adminCall("/admin/score"); }
+    async function adminFetch() { await adminCall("/admin/fetch-jobs"); }
+    async function adminScore() { await adminCall("/admin/score-jobs"); }
     async function adminCleanup() { await adminCall("/admin/cleanup-jobs"); }
 
     document.addEventListener("DOMContentLoaded", () => {

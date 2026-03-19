@@ -117,6 +117,10 @@ async def fetch_and_score():
                     if not summary or not description:
                         continue
 
+                    # Remote type filter
+                    if remote_pref and job.remote_type and job.remote_type != remote_pref:
+                        continue
+
                     # Clearance filter
                     if prefs.get("exclude_clearance") and _requires_clearance(description):
                         continue
