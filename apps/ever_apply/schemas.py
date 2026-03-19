@@ -25,7 +25,7 @@ class ParsedData(BaseModel):
 
 class UserPreferenceRead(BaseModel):
     min_score: float
-    remote_type: RemoteType
+    remote_type: Optional[RemoteType] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
     preferred_location: Optional[str] = None
