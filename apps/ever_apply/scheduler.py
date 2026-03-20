@@ -169,10 +169,10 @@ async def fetch_and_score():
 MT = "America/Denver"
 
 # Weekdays — cleanup before fetch, then fetch + score twice a day
-scheduler.add_job(cleanup_job, CronTrigger(day_of_week="mon-fri", hour=6, minute=55, timezone=MT))
-scheduler.add_job(fetch_and_score, CronTrigger(day_of_week="mon-fri", hour=7, minute=0, timezone=MT))
-scheduler.add_job(fetch_and_score, CronTrigger(day_of_week="mon-fri", hour=10, minute=0, timezone=MT))
+scheduler.add_job(cleanup_job, CronTrigger(day_of_week="mon-fri", hour=8, minute=55, timezone=MT))
+scheduler.add_job(fetch_and_score, CronTrigger(day_of_week="mon-fri", hour=9, minute=0, timezone=MT))
+scheduler.add_job(fetch_and_score, CronTrigger(day_of_week="mon-fri", hour=12, minute=0, timezone=MT))
 
 # Weekends — cleanup + single fetch (conserve Apify credits)
-scheduler.add_job(cleanup_job, CronTrigger(day_of_week="sat,sun", hour=6, minute=55, timezone=MT))
-scheduler.add_job(fetch_and_score, CronTrigger(day_of_week="sat,sun", hour=7, minute=0, timezone=MT))
+scheduler.add_job(cleanup_job, CronTrigger(day_of_week="sat,sun", hour=8, minute=55, timezone=MT))
+scheduler.add_job(fetch_and_score, CronTrigger(day_of_week="sat,sun", hour=9, minute=0, timezone=MT))
