@@ -1,13 +1,15 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
+from core.config import settings
 from core.database import get_db
-from apps.ever_apply.models import JobMatch, MatchStatus
+from apps.ever_apply.models import JobMatch, MatchStatus, User
 from apps.ever_apply.schemas import JobMatchRead, MatchStatusUpdate
 from apps.ever_apply.services.clerk import get_current_clerk_user
-from apps.ever_apply.models import User
 
 router = APIRouter()
 
@@ -68,3 +70,72 @@ async def update_match_status(
     await db.commit()
     await db.refresh(match)
     return match
+
+
+# POST /matches/{match_id}/generate-ats-resume
+# Generate an ATS-optimized resume PDF for this job match and store it in R2
+@router.post("/{match_id}/generate-ats-resume")
+async def generate_ats_resume(
+    match_id: str,
+    db: AsyncSession = Depends(get_db),
+    clerk_user: dict = Depends(get_current_clerk_user),
+):
+    user_result = await db.execute(
+        select(User).where(User.clerk_user_id == clerk_user["sub"])
+    )
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    if not user.resume_url or not user.parsed_data:
+        raise HTTPException(status_code=400, detail="Upload a resume before generating an ATS resume.")
+
+    result = await db.execute(
+        select(JobMatch)
+        .where(JobMatch.id == match_id, JobMatch.user_id == user.id)
+        .options(selectinload(JobMatch.job))
+    )
+    match = result.scalar_one_or_none()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found.")
+
+    # Return cached result — don't count against the daily limit
+    if match.ats_resume_url:
+        return {"ats_resume_url": match.ats_resume_url}
+
+    # Daily limit check
+    daily_limit = settings.ATS_DAILY_LIMIT_FREE if user.is_free else settings.ATS_DAILY_LIMIT_PAID
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    count_result = await db.execute(
+        select(func.count()).where(
+            JobMatch.user_id == user.id,
+            JobMatch.ats_resume_generated_at >= today_start,
+        )
+    )
+    if count_result.scalar() >= daily_limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily ATS resume limit of {daily_limit} reached. Try again tomorrow.",
+        )
+
+    if not match.job.description:
+        raise HTTPException(status_code=400, detail="Job has no description to generate from.")
+
+    from apps.ever_apply.services.ats_resume import (
+        download_resume_text,
+        generate_ats_content,
+        build_pdf,
+        upload_ats_resume,
+    )
+
+    resume_text = await download_resume_text(user.resume_url)
+    ats_data = await generate_ats_content(resume_text, match.job.description)
+    pdf_bytes = build_pdf(ats_data)
+    ats_url = await upload_ats_resume(pdf_bytes, clerk_user["sub"], match_id)
+
+    match.ats_resume_url = ats_url
+    match.ats_resume_generated_at = datetime.utcnow()
+    user.total_ats_resumes_generated = (user.total_ats_resumes_generated or 0) + 1
+    await db.commit()
+
+    return {"ats_resume_url": ats_url}

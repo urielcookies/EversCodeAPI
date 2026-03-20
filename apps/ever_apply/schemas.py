@@ -70,6 +70,7 @@ class JobMatchRead(BaseModel):
     score: float
     reason: Optional[str] = None
     status: MatchStatus
+    ats_resume_url: Optional[str] = None
     job: JobRead
     model_config = {"from_attributes": True}
 

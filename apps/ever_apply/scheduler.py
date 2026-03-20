@@ -25,11 +25,12 @@ def _is_eligible(user) -> bool:
 
 
 async def cleanup_job():
-    """Delete expired jobs that haven't been saved or applied."""
+    """Delete expired jobs that haven't been saved or applied, and clean up any ATS resume files from R2."""
     from core.database import AsyncSessionLocal
     from sqlalchemy import select, delete
     from datetime import datetime
     from apps.ever_apply.models import Job, JobMatch
+    from apps.ever_apply.services.ats_resume import delete_ats_resume
 
     try:
         async with AsyncSessionLocal() as db:
@@ -49,10 +50,26 @@ async def cleanup_job():
             expired_ids = [row[0] for row in expired.fetchall()]
 
             if expired_ids:
+                # Collect ATS resume URLs to delete from R2 after DB cleanup
+                ats_result = await db.execute(
+                    select(JobMatch.ats_resume_url).where(
+                        JobMatch.job_id.in_(expired_ids),
+                        JobMatch.ats_resume_url.isnot(None),
+                    )
+                )
+                ats_urls = [row[0] for row in ats_result.fetchall()]
+
                 await db.execute(delete(JobMatch).where(JobMatch.job_id.in_(expired_ids)))
                 result = await db.execute(delete(Job).where(Job.id.in_(expired_ids)))
                 await db.commit()
-                logger.info(f"cleanup_job: deleted {result.rowcount} expired jobs")
+
+                for url in ats_urls:
+                    try:
+                        await delete_ats_resume(url)
+                    except Exception:
+                        logger.warning(f"cleanup_job: failed to delete ATS resume from R2: {url}")
+
+                logger.info(f"cleanup_job: deleted {result.rowcount} expired jobs, {len(ats_urls)} ATS resumes")
             else:
                 logger.info("cleanup_job: nothing to delete")
     except Exception:

@@ -20,3 +20,4 @@ pdfplumber==0.11.9            # PDF text extraction
 apscheduler==3.11.2           # Scheduled scrape/cleanup jobs
 boto3==1.42.68                # Cloudflare R2 resume storage (R2 is S3-compatible, boto3 works)
 svix==1.58.0                  # Clerk webhook signature verification
+reportlab==4.4.1              # ATS resume PDF generation

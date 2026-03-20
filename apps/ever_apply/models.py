@@ -1,6 +1,6 @@
 import enum
 import uuid
-from sqlalchemy import Column, String, Float, ForeignKey, DateTime, Text, Enum, Boolean
+from sqlalchemy import Column, String, Float, ForeignKey, DateTime, Text, Enum, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -31,6 +31,7 @@ class User(Base):
     parsed_data = Column(JSONB, nullable=True)
     preferences = Column(JSONB, nullable=True)
     is_free = Column(Boolean, default=False, nullable=False)
+    total_ats_resumes_generated = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     matches = relationship("JobMatch", back_populates="user")
 
@@ -60,6 +61,8 @@ class JobMatch(Base):
     score = Column(Float, nullable=False)
     reason = Column(String, nullable=True)
     status = Column(Enum(MatchStatus), default=MatchStatus.NEW, nullable=False)
+    ats_resume_url = Column(String, nullable=True)
+    ats_resume_generated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User", back_populates="matches")
     job = relationship("Job", back_populates="matches")
