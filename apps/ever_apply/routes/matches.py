@@ -1,6 +1,8 @@
 from datetime import datetime
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -10,6 +12,7 @@ from core.database import get_db
 from apps.ever_apply.models import JobMatch, MatchStatus, User
 from apps.ever_apply.schemas import JobMatchRead, MatchStatusUpdate
 from apps.ever_apply.services.clerk import get_current_clerk_user
+from apps.ever_apply.services.ats_resume import _r2_client
 
 router = APIRouter()
 
@@ -139,3 +142,39 @@ async def generate_ats_resume(
     await db.commit()
 
     return {"ats_resume_url": ats_url}
+
+
+# GET /matches/{match_id}/ats-resume
+# Proxy the ATS resume PDF from R2 — avoids CORS issues with direct R2 URLs
+@router.get("/{match_id}/ats-resume")
+async def get_ats_resume(
+    match_id: str,
+    db: AsyncSession = Depends(get_db),
+    clerk_user: dict = Depends(get_current_clerk_user),
+):
+    user_result = await db.execute(
+        select(User).where(User.clerk_user_id == clerk_user["sub"])
+    )
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    result = await db.execute(
+        select(JobMatch).where(JobMatch.id == match_id, JobMatch.user_id == user.id)
+    )
+    match = result.scalar_one_or_none()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found.")
+
+    if not match.ats_resume_url:
+        raise HTTPException(status_code=404, detail="ATS resume not generated yet.")
+
+    key = urlparse(match.ats_resume_url).path.lstrip("/")
+    response = _r2_client().get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+    pdf_bytes = response["Body"].read()
+
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=ats-resume-{match_id}.pdf"},
+    )
