@@ -9,6 +9,7 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+from reportlab.platypus.flowables import KeepInFrame
 
 from core.config import settings
 
@@ -175,7 +176,9 @@ def build_pdf(data: dict) -> bytes:
         for cert in data["certifications"]:
             story.append(Paragraph(f"• {cert}", bullet_style))
 
-    doc.build(story)
+    usable_width = letter[0] - 1.5 * inch
+    usable_height = letter[1] - 1.5 * inch
+    doc.build([KeepInFrame(usable_width, usable_height, story, mode="shrink")])
     return buffer.getvalue()
 
 
