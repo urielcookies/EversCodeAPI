@@ -60,6 +60,7 @@ class JobRead(BaseModel):
     location: Optional[str] = None
     remote_type: Optional[RemoteType] = None
     source_url: str
+    description: Optional[str] = None
     posted_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     model_config = {"from_attributes": True}
