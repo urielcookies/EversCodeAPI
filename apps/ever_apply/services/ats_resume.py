@@ -2,6 +2,7 @@ import json
 import pdfplumber
 import boto3
 from io import BytesIO
+from urllib.parse import urlparse
 from openai import AsyncOpenAI
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -28,7 +29,7 @@ def _r2_client():
 
 async def download_resume_text(resume_url: str) -> str:
     """Download user's PDF from R2 and extract full text."""
-    key = resume_url.replace(f"{settings.R2_PUBLIC_URL}/", "")
+    key = urlparse(resume_url).path.lstrip("/")
     response = _r2_client().get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
     file_bytes = response["Body"].read()
     with pdfplumber.open(BytesIO(file_bytes)) as pdf:
@@ -197,5 +198,5 @@ async def upload_ats_resume(pdf_bytes: bytes, clerk_user_id: str, match_id: str)
 
 async def delete_ats_resume(ats_resume_url: str) -> None:
     """Delete an ATS resume PDF from R2."""
-    key = ats_resume_url.replace(f"{settings.R2_PUBLIC_URL}/", "")
+    key = urlparse(ats_resume_url).path.lstrip("/")
     _r2_client().delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)

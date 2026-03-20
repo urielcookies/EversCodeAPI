@@ -2,6 +2,7 @@ import json
 import boto3
 import pdfplumber
 from io import BytesIO
+from urllib.parse import urlparse
 from openai import AsyncOpenAI
 from core.config import settings
 from apps.ever_apply.schemas import ParsedData
@@ -23,7 +24,7 @@ def get_r2_client():
 
 # 1a. Delete existing resume from R2 by its public URL
 async def delete_resume(resume_url: str) -> None:
-    key = resume_url.replace(f"{settings.R2_PUBLIC_URL}/", "")
+    key = urlparse(resume_url).path.lstrip("/")
     client = get_r2_client()
     client.delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
 
