@@ -50,6 +50,7 @@ class UserRead(BaseModel):
     email: str
     resume_url: Optional[str] = None
     is_whitelisted: bool = False
+    is_paid: bool = False
     trial_expired: bool = False
     preferences: Optional[UserPreferenceRead] = None
     model_config = {"from_attributes": True}

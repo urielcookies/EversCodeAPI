@@ -31,13 +31,14 @@ class User(Base):
     parsed_data = Column(JSONB, nullable=True)
     preferences = Column(JSONB, nullable=True)
     is_whitelisted = Column("is_free", Boolean, default=False, nullable=False)
+    is_paid = Column(Boolean, default=False, nullable=False)
     total_ats_resumes_generated = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     matches = relationship("JobMatch", back_populates="user")
 
     @property
     def trial_expired(self) -> bool:
-        if self.is_whitelisted:
+        if self.is_whitelisted or self.is_paid:
             return False
         from core.config import settings
         from datetime import timedelta
