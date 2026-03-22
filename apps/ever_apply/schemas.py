@@ -16,6 +16,7 @@ class RadiusMiles(int, enum.Enum):
 
 
 class ParsedData(BaseModel):
+    name: str
     skills: list[str]
     titles: list[str]
     seniority: Seniority

@@ -107,7 +107,7 @@ def build_pdf(data: dict) -> bytes:
 
     base = getSampleStyleSheet()["Normal"]
 
-    name_style = ParagraphStyle("Name", parent=base, fontSize=18, fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=4)
+    name_style = ParagraphStyle("Name", parent=base, fontSize=18, fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=10)
     contact_style = ParagraphStyle("Contact", parent=base, fontSize=9, alignment=TA_CENTER, spaceAfter=2)
     section_style = ParagraphStyle("Section", parent=base, fontSize=11, fontName="Helvetica-Bold", spaceBefore=10, spaceAfter=3)
     body_style = ParagraphStyle("Body", parent=base, fontSize=10, spaceAfter=2, leading=14)

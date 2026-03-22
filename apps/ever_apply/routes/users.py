@@ -95,20 +95,22 @@ async def upload_user_resume(
     # Read file bytes once — reuse for both upload and text extraction
     file_bytes = await file.read()
 
-    # 1. Delete old resume from R2 if one exists
+    # 1. Extract and validate text before touching R2
+    text = extract_text(file_bytes)
+    if len(text.strip()) < 200:
+        raise HTTPException(status_code=400, detail="Could not extract text from PDF. Make sure it's a text-based resume, not a scanned image.")
+
+    # 2. Delete old resume from R2 if one exists
     if user.resume_url:
         await delete_resume(user.resume_url)
 
-    # 2. Upload to R2
+    # 3. Upload to R2
     resume_url = await upload_resume(file_bytes, file.filename, clerk_user["sub"])
-
-    # 3. Extract text from PDF
-    text = extract_text(file_bytes)
 
     # 4. Parse with DeepSeek
     parsed_data = await parse_resume(text)
 
-    # 4. Save to DB
+    # 5. Save to DB
     user.resume_url = resume_url
     user.parsed_data = parsed_data
     await db.commit()

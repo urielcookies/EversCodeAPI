@@ -3,6 +3,7 @@ import boto3
 import pdfplumber
 from io import BytesIO
 from urllib.parse import urlparse
+from fastapi import HTTPException
 from openai import AsyncOpenAI
 from core.config import settings
 from apps.ever_apply.schemas import ParsedData
@@ -46,7 +47,7 @@ async def upload_resume(file_bytes: bytes, filename: str, clerk_user_id: str) ->
 # 2. Extract text from PDF bytes (no temp file needed)
 def extract_text(file_bytes: bytes) -> str:
     with pdfplumber.open(BytesIO(file_bytes)) as pdf:
-        return "\n".join(page.extract_text() for page in pdf.pages)
+        return "\n".join(page.extract_text() or "" for page in pdf.pages)
 
 
 # 3. Parse with DeepSeek → structured JSON validated against ParsedData schema
@@ -58,6 +59,7 @@ async def parse_resume(text: str) -> dict:
             {
                 "role": "system",
                 "content": """Extract resume info as JSON with these exact keys:
+- name: full name of the candidate as a string
 - skills: list of strings
 - titles: list of strings
 - seniority: must be exactly one of: junior, mid, senior (map entry/associate to junior, map lead/staff/principal to senior)
@@ -68,5 +70,8 @@ Return only valid JSON, no extra text.""",
             {"role": "user", "content": text},
         ],
     )
-    # Validate against ParsedData schema — raises if DeepSeek returns unexpected values
-    return ParsedData(**json.loads(response.choices[0].message.content)).model_dump()
+    parsed = ParsedData(**json.loads(response.choices[0].message.content))
+    # Validate parsed output looks like a real resume
+    if not parsed.name.strip() or not parsed.skills:
+        raise HTTPException(status_code=400, detail="Could not parse resume. Please upload your actual resume.")
+    return parsed.model_dump()

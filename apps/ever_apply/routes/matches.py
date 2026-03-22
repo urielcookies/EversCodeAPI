@@ -160,7 +160,9 @@ async def get_ats_resume(
         raise HTTPException(status_code=404, detail="User not found.")
 
     result = await db.execute(
-        select(JobMatch).where(JobMatch.id == match_id, JobMatch.user_id == user.id)
+        select(JobMatch)
+        .where(JobMatch.id == match_id, JobMatch.user_id == user.id)
+        .options(selectinload(JobMatch.job))
     )
     match = result.scalar_one_or_none()
     if not match:
@@ -173,8 +175,12 @@ async def get_ats_resume(
     response = _r2_client().get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
     pdf_bytes = response["Body"].read()
 
+    name = (user.parsed_data or {}).get("name", "Resume")
+    company = match.job.company if match.job else "Company"
+    filename = f"{name} - {company} Resume.pdf"
+
     return StreamingResponse(
         iter([pdf_bytes]),
         media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename=ats-resume-{match_id}.pdf"},
+        headers={"Content-Disposition": f"inline; filename=\"{filename}\""},
     )
