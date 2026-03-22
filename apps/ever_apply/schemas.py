@@ -49,7 +49,8 @@ class UserRead(BaseModel):
     clerk_user_id: str
     email: str
     resume_url: Optional[str] = None
-    is_free: bool = False
+    is_whitelisted: bool = False
+    trial_expired: bool = False
     preferences: Optional[UserPreferenceRead] = None
     model_config = {"from_attributes": True}
 

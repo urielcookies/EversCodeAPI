@@ -35,8 +35,8 @@ class Settings(BaseSettings):
                                                #         + 6000 jobs x 50 output tokens x $0.42/1M
                                                # Update if pricing changes: platform.deepseek.com/docs/pricing
     EVER_APPLY_TRIAL_DAYS: int = 7            # Free trial length in days
-    ATS_DAILY_LIMIT_FREE: int = 20            # Max ATS resume generations per day for free users
-    ATS_DAILY_LIMIT_PAID: int = 10            # Max ATS resume generations per day for paid users
+    ATS_DAILY_LIMIT_DEFAULT: int = 5          # Max ATS resume generations per day for regular users
+    ATS_DAILY_LIMIT_WHITELISTED: int = 20    # Max ATS resume generations per day for whitelisted users
 
     class Config:
         env_file = ".env"

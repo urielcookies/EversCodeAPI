@@ -17,7 +17,7 @@ from apps.ever_apply.models import Job, JobMatch, User
 
 def _is_eligible(user) -> bool:
     """Returns True if this user should receive an Apify fetch run."""
-    if user.is_free:
+    if user.is_whitelisted:
         return True
     trial_cutoff = datetime.utcnow() - timedelta(days=settings.EVER_APPLY_TRIAL_DAYS)
     return user.created_at >= trial_cutoff

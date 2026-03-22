@@ -47,9 +47,9 @@ def run_report(users: list, apify_balance: float, deepseek_balance: float):
     now = datetime.utcnow()
     trial_cutoff = now - timedelta(days=settings.EVER_APPLY_TRIAL_DAYS)
 
-    free_users    = [u for u in users if u.is_free]
-    trial_users   = [u for u in users if not u.is_free and u.created_at >= trial_cutoff]
-    paying_users  = [u for u in users if not u.is_free and u.created_at < trial_cutoff]
+    free_users    = [u for u in users if u.is_whitelisted]
+    trial_users   = [u for u in users if not u.is_whitelisted and u.created_at >= trial_cutoff]
+    paying_users  = [u for u in users if not u.is_whitelisted and u.created_at < trial_cutoff]
 
     n_free    = len(free_users)
     n_trial   = len(trial_users)
