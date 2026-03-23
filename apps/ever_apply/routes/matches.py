@@ -80,6 +80,42 @@ async def update_match_status(
     return match
 
 
+# GET /matches/ats-usage
+# Returns the user's daily match-based ATS resume usage
+@router.get("/ats-usage")
+async def get_ats_usage(
+    db: AsyncSession = Depends(get_db),
+    clerk_user: dict = Depends(get_current_clerk_user),
+):
+    user_result = await db.execute(
+        select(User).where(User.clerk_user_id == clerk_user["sub"])
+    )
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    if user.is_whitelisted:
+        daily_limit = settings.ATS_DAILY_LIMIT_WHITELISTED
+    elif user.is_paid:
+        daily_limit = settings.ATS_DAILY_LIMIT_PAID
+    else:
+        daily_limit = settings.ATS_DAILY_LIMIT_DEFAULT
+
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    count_result = await db.execute(
+        select(func.count()).where(
+            JobMatch.user_id == user.id,
+            JobMatch.ats_resume_generated_at >= today_start,
+        )
+    )
+    used = count_result.scalar()
+    return {
+        "used": used,
+        "limit": daily_limit,
+        "remaining": max(0, daily_limit - used),
+    }
+
+
 # POST /matches/{match_id}/generate-ats-resume
 # Generate an ATS-optimized resume PDF for this job match and store it in R2
 @router.post("/{match_id}/generate-ats-resume")
