@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from urllib.parse import urlparse
 
+from core.config import settings
 from core.database import get_db
 from apps.ever_apply.models import User
 from apps.ever_apply.schemas import UserRead, UserPreferenceRead, UserPreferencesUpdate
 from apps.ever_apply.services.clerk import get_current_clerk_user
 from apps.ever_apply.services.resume import upload_resume, delete_resume, extract_text, parse_resume
+from apps.ever_apply.services.ats_resume import _r2_client
 
 router = APIRouter()
 
@@ -76,6 +80,37 @@ async def update_preferences(
     return UserPreferenceRead(**user.preferences)
 
 
+# GET /users/me/resume
+# Proxy the user's resume PDF from R2 — avoids CORS issues with direct R2 URLs
+@router.get("/me/resume")
+async def get_user_resume(
+    db: AsyncSession = Depends(get_db),
+    clerk_user: dict = Depends(get_current_clerk_user),
+):
+    result = await db.execute(
+        select(User).where(User.clerk_user_id == clerk_user["sub"])
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    if not user.resume_url:
+        raise HTTPException(status_code=404, detail="No resume uploaded yet.")
+
+    key = urlparse(user.resume_url).path.lstrip("/")
+    response = _r2_client().get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+    pdf_bytes = response["Body"].read()
+
+    name = (user.parsed_data or {}).get("name", "Resume")
+    filename = f"{name} - Resume.pdf"
+
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=\"{filename}\""},
+    )
+
+
 # POST /users/resume
 # Upload resume PDF → store in R2 → extract text → parse with DeepSeek → save to DB
 @router.post("/resume", response_model=UserRead)
@@ -97,7 +132,7 @@ async def upload_user_resume(
 
     # 1. Extract and validate text before touching R2
     text = extract_text(file_bytes)
-    if len(text.strip()) < 200:
+    if len(text.strip()) < 50:
         raise HTTPException(status_code=400, detail="Could not extract text from PDF. Make sure it's a text-based resume, not a scanned image.")
 
     # 2. Delete old resume from R2 if one exists

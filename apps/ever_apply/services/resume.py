@@ -1,6 +1,6 @@
 import json
 import boto3
-import pdfplumber
+import fitz
 from io import BytesIO
 from urllib.parse import urlparse
 from fastapi import HTTPException
@@ -46,8 +46,8 @@ async def upload_resume(file_bytes: bytes, filename: str, clerk_user_id: str) ->
 
 # 2. Extract text from PDF bytes (no temp file needed)
 def extract_text(file_bytes: bytes) -> str:
-    with pdfplumber.open(BytesIO(file_bytes)) as pdf:
-        return "\n".join(page.extract_text() or "" for page in pdf.pages)
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    return "\n".join(page.get_text() for page in doc)
 
 
 # 3. Parse with DeepSeek → structured JSON validated against ParsedData schema

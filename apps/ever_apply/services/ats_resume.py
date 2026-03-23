@@ -1,5 +1,5 @@
 import json
-import pdfplumber
+import fitz
 import boto3
 from io import BytesIO
 from urllib.parse import urlparse
@@ -32,8 +32,8 @@ async def download_resume_text(resume_url: str) -> str:
     key = urlparse(resume_url).path.lstrip("/")
     response = _r2_client().get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
     file_bytes = response["Body"].read()
-    with pdfplumber.open(BytesIO(file_bytes)) as pdf:
-        return "\n".join(page.extract_text() or "" for page in pdf.pages)
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    return "\n".join(page.get_text() for page in doc)
 
 
 async def generate_ats_content(resume_text: str, job_description: str) -> dict:
