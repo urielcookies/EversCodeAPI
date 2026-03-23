@@ -4,12 +4,12 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case
 from sqlalchemy.orm import selectinload
 
 from core.config import settings
 from core.database import get_db
-from apps.ever_apply.models import JobMatch, MatchStatus, User
+from apps.ever_apply.models import Job, JobMatch, MatchStatus, User
 from apps.ever_apply.schemas import JobMatchRead, MatchStatusUpdate
 from apps.ever_apply.services.clerk import get_current_clerk_user
 from apps.ever_apply.services.ats_resume import _r2_client
@@ -35,9 +35,14 @@ async def list_matches(
 
     result = await db.execute(
         select(JobMatch)
+        .join(Job, JobMatch.job_id == Job.id)
         .where(JobMatch.user_id == user.id, JobMatch.status == status)
         .options(selectinload(JobMatch.job))
-        .order_by(JobMatch.score.desc())
+        .order_by(
+            JobMatch.score.desc(),
+            case((JobMatch.ats_resume_url.isnot(None), 0), else_=1),
+            Job.posted_at.desc(),
+        )
     )
     return result.scalars().all()
 
