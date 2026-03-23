@@ -136,10 +136,14 @@ async def generate_ideal_resume(
     user.total_ats_resumes_generated = (user.total_ats_resumes_generated or 0) + 1
     await db.commit()
 
+    name = ats_data.get("name", "Ideal Candidate")
+    company = (ats_data.get("experience") or [{}])[0].get("company", "Company")
+    filename = f"{name} - {company} Resume.pdf"
+
     return StreamingResponse(
         iter([pdf_bytes]),
         media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=\"Ideal Candidate - Resume.pdf\""},
+        headers={"Content-Disposition": f"attachment; filename=\"{filename}\""},
     )
 
 
@@ -183,7 +187,8 @@ async def generate_ideal_realistic_resume(
     await db.commit()
 
     name = ats_data.get("name", "Resume")
-    filename = f"{name} - Ideal Resume.pdf"
+    company = (ats_data.get("experience") or [{}])[0].get("company", "Company")
+    filename = f"{name} - {company} Resume.pdf"
 
     return StreamingResponse(
         iter([pdf_bytes]),
