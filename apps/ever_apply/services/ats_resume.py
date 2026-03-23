@@ -248,6 +248,65 @@ certifications may be an empty list if none exist.""",
     return json.loads(response.choices[0].message.content)
 
 
+async def generate_realistic_content(resume_text: str, job_description: str) -> dict:
+    """Call DeepSeek to produce an enhanced resume using real skeleton + AI-generated bullets/skills/summary."""
+    response = await deepseek.chat.completions.create(
+        model="deepseek-chat",
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": """You are an expert resume writer. You will be given a candidate's real resume and a job description.
+Your job is to enhance the resume to make it the perfect ATS-optimized version for that specific job.
+
+Rules:
+- PRESERVE exactly as-is: name, email, phone, LinkedIn, GitHub, location, company names, job dates, education (degree, school, year)
+- PRESERVE job titles exactly as-is
+- INVENT highly compelling, specific, quantified bullet points for each job — tailored to the job description keywords
+- EXPAND and OPTIMIZE the skills section to maximize ATS keyword matching for this job
+- GENERATE a strong AI-written professional summary targeting this specific job
+- Every bullet must start with a strong action verb and include metrics/numbers where believable
+- Mirror keywords and phrases from the job description naturally throughout
+
+Return ONLY valid JSON with this exact structure:
+{
+  "name": "string",
+  "email": "string",
+  "phone": "string or null",
+  "linkedin": "string or null",
+  "github": "string or null",
+  "location": "string or null",
+  "summary": "2-3 sentence AI-generated summary targeting this specific job",
+  "skills": ["skill1", "skill2"],
+  "experience": [
+    {
+      "title": "Job Title",
+      "company": "Company Name",
+      "duration": "Month Year - Month Year",
+      "bullets": ["bullet 1", "bullet 2"]
+    }
+  ],
+  "education": [
+    {
+      "degree": "Degree Name",
+      "school": "School Name",
+      "year": "string or null"
+    }
+  ],
+  "certifications": ["cert1"]
+}
+
+certifications may be an empty list if none exist.""",
+            },
+            {
+                "role": "user",
+                "content": f"CANDIDATE RESUME:\n{resume_text}\n\nJOB DESCRIPTION:\n{job_description}",
+            },
+        ],
+    )
+    return json.loads(response.choices[0].message.content)
+
+
 async def upload_ats_resume(pdf_bytes: bytes, clerk_user_id: str, match_id: str) -> str:
     """Upload the generated ATS resume PDF to R2 and return its public URL."""
     prefix = "development/ats-resumes" if settings.ENV == "development" else "ats-resumes"

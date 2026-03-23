@@ -11,7 +11,7 @@ from core.config import settings
 from core.database import get_db
 from apps.ever_apply.models import User
 from apps.ever_apply.services.clerk import get_current_clerk_user
-from apps.ever_apply.services.ats_resume import download_resume_text, generate_ats_content, generate_ideal_content, build_pdf
+from apps.ever_apply.services.ats_resume import download_resume_text, generate_ats_content, generate_ideal_content, generate_realistic_content, build_pdf
 
 router = APIRouter()
 
@@ -140,6 +140,55 @@ async def generate_ideal_resume(
         iter([pdf_bytes]),
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=\"Ideal Candidate - Resume.pdf\""},
+    )
+
+
+# POST /resumes/ideal-realistic
+# Sandbox realistic mode: preserve real resume skeleton, AI-generate bullets/skills/summary
+@router.post("/ideal-realistic")
+async def generate_ideal_realistic_resume(
+    body: TargetedResumeRequest,
+    db: AsyncSession = Depends(get_db),
+    clerk_user: dict = Depends(get_current_clerk_user),
+):
+    result = await db.execute(
+        select(User).where(User.clerk_user_id == clerk_user["sub"])
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    if not user.resume_url:
+        raise HTTPException(status_code=400, detail="Upload a resume before using realistic mode.")
+
+    if user.trial_expired:
+        raise HTTPException(status_code=403, detail="Your trial has expired. Upgrade to continue.")
+
+    # Shares daily limit with targeted and ideal resumes
+    _reset_if_needed(user)
+
+    daily_limit = _get_targeted_limit(user)
+    if user.custom_ats_count >= daily_limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily resume limit of {daily_limit} reached. Resets at midnight MT.",
+        )
+
+    resume_text = await download_resume_text(user.resume_url)
+    ats_data = await generate_realistic_content(resume_text, body.job_description)
+    pdf_bytes = build_pdf(ats_data)
+
+    user.custom_ats_count += 1
+    user.total_ats_resumes_generated = (user.total_ats_resumes_generated or 0) + 1
+    await db.commit()
+
+    name = ats_data.get("name", "Resume")
+    filename = f"{name} - Ideal Resume.pdf"
+
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=\"{filename}\""},
     )
 
 
