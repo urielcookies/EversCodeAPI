@@ -33,6 +33,8 @@ class User(Base):
     is_whitelisted = Column(Boolean, default=False, nullable=False)
     is_paid = Column(Boolean, default=False, nullable=False)
     total_ats_resumes_generated = Column(Integer, default=0, nullable=False)
+    custom_ats_count = Column(Integer, default=0, nullable=False)
+    custom_ats_last_reset = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     matches = relationship("JobMatch", back_populates="user")
 

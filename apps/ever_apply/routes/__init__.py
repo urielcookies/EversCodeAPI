@@ -6,6 +6,7 @@ from .matches import router as matches_router
 from .jobs import router as jobs_router
 from .admin import router as admin_router
 from .webhooks import router as webhooks_router
+from .resumes import router as resumes_router
 
 router = APIRouter()
 router.include_router(ping_router)
@@ -14,3 +15,4 @@ router.include_router(matches_router, prefix="/matches")
 router.include_router(jobs_router, prefix="/jobs")
 router.include_router(admin_router, prefix="/admin")
 router.include_router(webhooks_router, prefix="/webhooks")
+router.include_router(resumes_router, prefix="/resumes")

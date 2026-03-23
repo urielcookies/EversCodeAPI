@@ -112,7 +112,12 @@ async def generate_ats_resume(
         return {"ats_resume_url": match.ats_resume_url}
 
     # Daily limit check
-    daily_limit = settings.ATS_DAILY_LIMIT_WHITELISTED if user.is_whitelisted else settings.ATS_DAILY_LIMIT_DEFAULT
+    if user.is_whitelisted:
+        daily_limit = settings.ATS_DAILY_LIMIT_WHITELISTED
+    elif user.is_paid:
+        daily_limit = settings.ATS_DAILY_LIMIT_PAID
+    else:
+        daily_limit = settings.ATS_DAILY_LIMIT_DEFAULT
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     count_result = await db.execute(
         select(func.count()).where(
