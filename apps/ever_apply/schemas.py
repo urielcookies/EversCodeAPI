@@ -52,6 +52,7 @@ class UserRead(BaseModel):
     is_whitelisted: bool = False
     is_paid: bool = False
     trial_expired: bool = False
+    parsed_data: Optional[ParsedData] = None
     preferences: Optional[UserPreferenceRead] = None
     model_config = {"from_attributes": True}
 
