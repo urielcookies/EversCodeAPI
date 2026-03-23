@@ -92,7 +92,8 @@ async def generate_targeted_resume(
     await db.commit()
 
     name = ats_data.get("name", "Resume")
-    filename = f"{name} - Resume.pdf"
+    company = (ats_data.get("experience") or [{}])[0].get("company", "Company")
+    filename = f"{name} - {company} Resume.pdf"
 
     return StreamingResponse(
         iter([pdf_bytes]),
