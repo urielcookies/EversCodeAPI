@@ -1,9 +1,11 @@
 import json
 import fitz
 import boto3
+from botocore.exceptions import ClientError
 from io import BytesIO
 from urllib.parse import urlparse
 from openai import AsyncOpenAI
+from fastapi import HTTPException
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
@@ -30,7 +32,12 @@ def _r2_client():
 async def download_resume_text(resume_url: str) -> str:
     """Download user's PDF from R2 and extract full text."""
     key = urlparse(resume_url).path.lstrip("/")
-    response = _r2_client().get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+    try:
+        response = _r2_client().get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchKey":
+            raise HTTPException(status_code=404, detail="Resume file not found. Please re-upload your resume.")
+        raise
     file_bytes = response["Body"].read()
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     return "\n".join(page.get_text() for page in doc)
