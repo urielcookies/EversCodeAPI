@@ -106,10 +106,35 @@ async def generate_targeted_resume(
 @router.post("/ideal")
 async def generate_ideal_resume(
     body: TargetedResumeRequest,
+    db: AsyncSession = Depends(get_db),
     clerk_user: dict = Depends(get_current_clerk_user),
 ):
+    result = await db.execute(
+        select(User).where(User.clerk_user_id == clerk_user["sub"])
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    if user.trial_expired:
+        raise HTTPException(status_code=403, detail="Your trial has expired. Upgrade to continue.")
+
+    # Shares daily limit with targeted resumes
+    _reset_if_needed(user)
+
+    daily_limit = _get_targeted_limit(user)
+    if user.custom_ats_count >= daily_limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily resume limit of {daily_limit} reached. Resets at midnight MT.",
+        )
+
     ats_data = await generate_ideal_content(body.job_description)
     pdf_bytes = build_pdf(ats_data)
+
+    user.custom_ats_count += 1
+    user.total_ats_resumes_generated = (user.total_ats_resumes_generated or 0) + 1
+    await db.commit()
 
     return StreamingResponse(
         iter([pdf_bytes]),
