@@ -92,8 +92,7 @@ async def generate_targeted_resume(
     await db.commit()
 
     name = ats_data.get("name", "Resume")
-    company = (ats_data.get("experience") or [{}])[0].get("company", "Company")
-    filename = f"{name} - {company} Resume.pdf"
+    filename = f"{name} - Resume.pdf"
 
     return StreamingResponse(
         iter([pdf_bytes]),
@@ -188,8 +187,7 @@ async def generate_ideal_realistic_resume(
     await db.commit()
 
     name = ats_data.get("name", "Resume")
-    company = (ats_data.get("experience") or [{}])[0].get("company", "Company")
-    filename = f"{name} - {company} Resume.pdf"
+    filename = f"{name} - Resume.pdf"
 
     return StreamingResponse(
         iter([pdf_bytes]),
