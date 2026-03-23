@@ -142,13 +142,28 @@ async def fetch_and_score():
                     if prefs.get("exclude_clearance") and _requires_clearance(description):
                         continue
 
-                    # Skip if already matched
+                    # Skip if already matched by job ID
                     existing_match = await db.execute(
                         select(JobMatch).where(
                             and_(JobMatch.user_id == user.id, JobMatch.job_id == job.id)
                         )
                     )
                     if existing_match.scalar_one_or_none() is not None:
+                        continue
+
+                    # Skip if already matched a job with same title + company (different URL)
+                    existing_title_match = await db.execute(
+                        select(JobMatch)
+                        .join(Job)
+                        .where(
+                            and_(
+                                JobMatch.user_id == user.id,
+                                Job.title == job_data["title"],
+                                Job.company == job_data["company"],
+                            )
+                        )
+                    )
+                    if existing_title_match.scalar_one_or_none() is not None:
                         continue
 
                     result = await score_match(resume_context, description, user_preferences=prefs)
