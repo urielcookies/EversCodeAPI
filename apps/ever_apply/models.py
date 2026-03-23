@@ -30,7 +30,7 @@ class User(Base):
     resume_url = Column(String, nullable=True)
     parsed_data = Column(JSONB, nullable=True)
     preferences = Column(JSONB, nullable=True)
-    is_whitelisted = Column("is_free", Boolean, default=False, nullable=False)
+    is_whitelisted = Column(Boolean, default=False, nullable=False)
     is_paid = Column(Boolean, default=False, nullable=False)
     total_ats_resumes_generated = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
