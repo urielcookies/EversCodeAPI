@@ -11,7 +11,7 @@ from core.config import settings
 from core.database import get_db
 from apps.ever_apply.models import User
 from apps.ever_apply.services.clerk import get_current_clerk_user
-from apps.ever_apply.services.ats_resume import download_resume_text, generate_ats_content, build_pdf
+from apps.ever_apply.services.ats_resume import download_resume_text, generate_ats_content, generate_ideal_content, build_pdf
 
 router = APIRouter()
 
@@ -98,6 +98,23 @@ async def generate_targeted_resume(
         iter([pdf_bytes]),
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=\"{filename}\""},
+    )
+
+
+# POST /resumes/ideal
+# Sandbox: generate a fictional ideal candidate resume for a given job description — no base resume required
+@router.post("/ideal")
+async def generate_ideal_resume(
+    body: TargetedResumeRequest,
+    clerk_user: dict = Depends(get_current_clerk_user),
+):
+    ats_data = await generate_ideal_content(body.job_description)
+    pdf_bytes = build_pdf(ats_data)
+
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=\"Ideal Candidate - Resume.pdf\""},
     )
 
 
