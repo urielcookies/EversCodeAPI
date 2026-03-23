@@ -32,6 +32,7 @@ class User(Base):
     preferences = Column(JSONB, nullable=True)
     is_whitelisted = Column(Boolean, default=False, nullable=False)
     is_paid = Column(Boolean, default=False, nullable=False)
+    paid_at = Column(DateTime, nullable=True)
     total_ats_resumes_generated = Column(Integer, default=0, nullable=False)
     custom_ats_count = Column(Integer, default=0, nullable=False)
     custom_ats_last_reset = Column(DateTime, nullable=True)
@@ -46,6 +47,19 @@ class User(Base):
         from datetime import timedelta
         trial_cutoff = datetime.utcnow() - timedelta(days=settings.EVER_APPLY_TRIAL_DAYS)
         return self.created_at < trial_cutoff
+
+    @property
+    def trial_expires_at(self):
+        from datetime import timedelta
+        if self.is_whitelisted:
+            return None
+        if self.is_paid:
+            from core.config import settings
+            if self.paid_at:
+                return self.paid_at + timedelta(days=30)
+            return None
+        from core.config import settings
+        return self.created_at + timedelta(days=settings.EVER_APPLY_TRIAL_DAYS)
 
 class Job(Base):
     __tablename__ = "everapply_jobs"
