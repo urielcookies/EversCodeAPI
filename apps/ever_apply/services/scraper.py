@@ -127,12 +127,20 @@ async def fetch_all_jobs(keywords: list[str], location: str = "") -> list[dict]:
     # Apify scraper (Indeed)
     all_jobs += await fetch_indeed_jobs(keywords, location)
 
-    # Deduplicate by source_url before returning
-    seen = set()
+    # Deduplicate by source_url OR (title, company)
+    seen_urls = set()
+    seen_title_company = set()
     unique_jobs = []
     for job in all_jobs:
-        if job["source_url"] and job["source_url"] not in seen:
-            seen.add(job["source_url"])
-            unique_jobs.append(job)
+        url = job["source_url"]
+        title_company = (job["title"].lower().strip(), job["company"].lower().strip())
+
+        if (url and url in seen_urls) or title_company in seen_title_company:
+            continue
+
+        if url:
+            seen_urls.add(url)
+        seen_title_company.add(title_company)
+        unique_jobs.append(job)
 
     return unique_jobs
