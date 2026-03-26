@@ -97,7 +97,25 @@ async def fetch_indeed_jobs(keywords: list[str], location: str = "", remote: boo
     }
     run = apify.actor("borderline/indeed-scraper").call(run_input=run_input)
     items = apify.dataset(run["defaultDatasetId"]).iterate_items()
-    return [_normalize_job(item, "indeed") for item in items]
+    jobs = [_normalize_job(item, "indeed") for item in items]
+
+    # Deduplicate by source_url OR (title, company)
+    seen_urls = set()
+    seen_title_company = set()
+    unique_jobs = []
+    for job in jobs:
+        url = job["source_url"]
+        title_company = (job["title"].lower().strip(), job["company"].lower().strip())
+
+        if (url and url in seen_urls) or title_company in seen_title_company:
+            continue
+
+        if url:
+            seen_urls.add(url)
+        seen_title_company.add(title_company)
+        unique_jobs.append(job)
+
+    return unique_jobs
 
 
 async def fetch_greenhouse_jobs(company_slug: str) -> list[dict]:
@@ -127,20 +145,4 @@ async def fetch_all_jobs(keywords: list[str], location: str = "") -> list[dict]:
     # Apify scraper (Indeed)
     all_jobs += await fetch_indeed_jobs(keywords, location)
 
-    # Deduplicate by source_url OR (title, company)
-    seen_urls = set()
-    seen_title_company = set()
-    unique_jobs = []
-    for job in all_jobs:
-        url = job["source_url"]
-        title_company = (job["title"].lower().strip(), job["company"].lower().strip())
-
-        if (url and url in seen_urls) or title_company in seen_title_company:
-            continue
-
-        if url:
-            seen_urls.add(url)
-        seen_title_company.add(title_company)
-        unique_jobs.append(job)
-
-    return unique_jobs
+    return all_jobs
