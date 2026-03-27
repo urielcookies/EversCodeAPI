@@ -170,10 +170,8 @@ async def fetch_and_score():
                     score = result.get("score", 0)
                     reason = result.get("reason", "")
 
-                    min_score = prefs.get("min_score", 70)
-                    if score >= min_score:
-                        db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
-                        matched += 1
+                    db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
+                    matched += 1
 
             await db.commit()
             logger.info(f"fetch_and_score: done — {total_jobs} jobs fetched, {matched} new matches created")

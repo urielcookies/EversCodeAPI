@@ -154,10 +154,8 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
             result = await score_match(resume_context, description, user_preferences=prefs)
             score = result.get("score", 0)
             reason = result.get("reason", "")
-            min_score = prefs.get("min_score", 70)
-            if score >= min_score:
-                db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
-                matched += 1
+            db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
+            matched += 1
 
     await db.commit()
     return {"jobs_fetched": total_jobs, "matches_created": matched}
@@ -220,10 +218,8 @@ async def trigger_score(db: AsyncSession = Depends(get_db)):
             reason = result.get("reason", "")
             scored += 1
 
-            min_score = (user.preferences or {}).get("min_score", 70)
-            if score >= min_score:
-                db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
-                matched += 1
+            db.add(JobMatch(user_id=user.id, job_id=job.id, score=score, reason=reason))
+            matched += 1
 
     await db.commit()
     return {"jobs_scored": scored, "matches_created": matched}
