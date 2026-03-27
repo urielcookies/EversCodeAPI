@@ -92,4 +92,4 @@ async def root():
 
 @app.get("/ever-apply/test", response_class=HTMLResponse)
 async def ever_apply_test(request: Request):
-    return templates.TemplateResponse("ever_apply_test.html", {"request": request})
+    return templates.TemplateResponse(request, name="ever_apply_test.html")

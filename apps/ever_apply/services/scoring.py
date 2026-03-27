@@ -14,23 +14,9 @@ async def score_match(resume_summary: str, job_description: str, user_preference
     If user_preferences includes remote_type, DeepSeek will return score 0 on work arrangement mismatch.
     """
     prefs = user_preferences or {}
-    remote_pref = prefs.get("remote_type")
 
     preference_instruction = ""
-    if remote_pref:
-        preference_instruction = (
-            f"IMPORTANT: The user requires {remote_pref} work. "
-            "Read the job description carefully to determine the work arrangement. "
-            f"If the job clearly requires a work arrangement incompatible with {remote_pref} "
-            "(e.g. requires in-office presence, lists a physical office as required, or explicitly "
-            f"states onsite/hybrid when the user wants remote), you MUST return "
-            f"{{\"score\": 0, \"reason\": \"Job does not match {remote_pref} work preference\"}}. "
-            "Only proceed with skill scoring if the work arrangement is compatible or unspecified. "
-        )
-
     pref_context = ""
-    if remote_pref:
-        pref_context += f"\nWork arrangement preference: {remote_pref}"
 
     response = await deepseek.chat.completions.create(
         model="deepseek-chat",

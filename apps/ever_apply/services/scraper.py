@@ -51,8 +51,8 @@ def _normalize_job(raw: dict, source: str) -> dict:
         or ""
     )
 
-    # Remote type — check attributes array first (more specific), fall back to isRemote boolean
-    # isRemote=False only means "not fully remote" — could be hybrid, so don't assume onsite
+    # Remote type — check attributes array first (more specific), fall back to isRemote boolean,
+    # then fall back to scanning title and description for remote keywords
     attributes = [a.lower() for a in (raw.get("attributes") or [])]
     if "remote" in attributes:
         remote_type = "remote"
@@ -64,6 +64,17 @@ def _normalize_job(raw: dict, source: str) -> dict:
         remote_type = "remote"
     else:
         remote_type = raw.get("remote_type") or raw.get("workType") or None
+
+    if not remote_type:
+        title = (raw.get("title") or raw.get("jobTitle") or "").lower()
+        description = (raw.get("description") or raw.get("jobDescription") or raw.get("descriptionText") or raw.get("descriptionHtml") or "").lower()
+        text = f"{title} {description}"
+        if "remote-first" in text or "fully remote" in text or "100% remote" in text or "work from anywhere" in text or "work from home" in text:
+            remote_type = "remote"
+        elif "remote" in title:
+            remote_type = "remote"
+        elif "hybrid" in text:
+            remote_type = "hybrid"
 
     return {
         "title": raw.get("title") or raw.get("jobTitle", ""),
