@@ -34,6 +34,12 @@ class UserPreferenceRead(BaseModel):
     exclude_clearance: bool = False
 
 
+class ParsedDataUpdate(BaseModel):
+    skills: Optional[list[str]] = None
+    seniority: Optional[Seniority] = None
+    years_exp: Optional[int] = None
+
+
 class UserPreferencesUpdate(BaseModel):
     min_score: Optional[float] = None
     remote_type: Optional[RemoteType] = None

@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from core.config import settings
 from core.database import get_db
 from apps.ever_apply.models import User
-from apps.ever_apply.schemas import UserRead, UserPreferenceRead, UserPreferencesUpdate
+from apps.ever_apply.schemas import UserRead, UserPreferenceRead, UserPreferencesUpdate, ParsedDataUpdate
 from apps.ever_apply.services.clerk import get_current_clerk_user
 from apps.ever_apply.services.resume import upload_resume, delete_resume, extract_text, parse_resume
 from apps.ever_apply.services.ats_resume import _r2_client
@@ -78,6 +78,34 @@ async def update_preferences(
     await db.commit()
     await db.refresh(user)
     return UserPreferenceRead(**user.preferences)
+
+
+# PATCH /users/me/parsed-data
+# Update skills and/or seniority on the user's parsed resume data
+@router.patch("/me/parsed-data", response_model=UserRead)
+async def update_parsed_data(
+    body: ParsedDataUpdate,
+    db: AsyncSession = Depends(get_db),
+    clerk_user: dict = Depends(get_current_clerk_user),
+):
+    result = await db.execute(
+        select(User).where(User.clerk_user_id == clerk_user["sub"])
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.parsed_data:
+        raise HTTPException(status_code=404, detail="No parsed resume data found")
+
+    updates = body.model_dump(exclude_unset=True)
+    # Serialize seniority enum to its string value for JSONB storage
+    if "seniority" in updates and updates["seniority"] is not None:
+        updates["seniority"] = updates["seniority"].value
+    user.parsed_data = {**user.parsed_data, **updates}
+
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 # GET /users/me/resume

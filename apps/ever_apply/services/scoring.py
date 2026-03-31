@@ -37,7 +37,7 @@ async def score_match(resume_summary: str, job_description: str, user_preference
                     "Treat these as equivalent: JavaScript = Node.js = TypeScript, "
                     "React = Frontend Engineer, Python = Backend Engineer, "
                     "REST APIs = RESTful APIs = API development. "
-                    "In the reason, name the strongest skill overlap and the most critical gap."
+                    "In the reason, name the strongest skill overlap and list up to 3 specific missing keywords the candidate should add to their resume to improve this match."
                 ),
             },
             {
