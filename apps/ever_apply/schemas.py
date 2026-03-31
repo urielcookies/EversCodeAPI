@@ -38,6 +38,8 @@ class ParsedDataUpdate(BaseModel):
     skills: Optional[list[str]] = None
     seniority: Optional[Seniority] = None
     years_exp: Optional[int] = None
+    titles: Optional[list[str]] = None
+    summary: Optional[str] = None
 
 
 class UserPreferencesUpdate(BaseModel):
