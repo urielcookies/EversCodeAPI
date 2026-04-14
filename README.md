@@ -321,6 +321,20 @@ Every `git push origin main` after this triggers an automatic redeploy.
 2. Copy `DATABASE_PUBLIC_URL`
 3. In TablePlus: New Connection → PostgreSQL → paste the URL → Test → Connect
 
+### Viewing local data (DBeaver / TablePlus / pgAdmin)
+
+Use these values to connect to the local Docker PostgreSQL instance:
+
+| Field | Value |
+|---|---|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `everscodedb` |
+| Username | `urielcookies` |
+| Password | *(see `POSTGRES_PASSWORD` in your `.env`)* |
+
+> Make sure Docker is running (`docker-compose up -d`) before connecting.
+
 ---
 
 ## Project Structure
