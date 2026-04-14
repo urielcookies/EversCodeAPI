@@ -25,7 +25,6 @@ class ParsedData(BaseModel):
 
 
 class UserPreferenceRead(BaseModel):
-    min_score: float
     remote_type: Optional[RemoteType] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
@@ -43,7 +42,6 @@ class ParsedDataUpdate(BaseModel):
 
 
 class UserPreferencesUpdate(BaseModel):
-    min_score: Optional[float] = None
     remote_type: Optional[RemoteType] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
@@ -76,6 +74,8 @@ class JobRead(BaseModel):
     description: Optional[str] = None
     posted_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
     model_config = {"from_attributes": True}
 
 
