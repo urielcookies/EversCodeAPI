@@ -32,6 +32,7 @@ class User(Base):
     preferences = Column(JSONB, nullable=True)
     is_whitelisted = Column(Boolean, default=False, nullable=False)
     is_paid = Column(Boolean, default=False, nullable=False)
+    scraping_enabled = Column(Boolean, default=True, nullable=False)
     paid_at = Column(DateTime, nullable=True)
     total_ats_resumes_generated = Column(Integer, default=0, nullable=False)
     custom_ats_count = Column(Integer, default=0, nullable=False)

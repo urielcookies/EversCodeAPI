@@ -33,6 +33,10 @@ class UserPreferenceRead(BaseModel):
     exclude_clearance: bool = False
 
 
+class UserUpdate(BaseModel):
+    scraping_enabled: Optional[bool] = None
+
+
 class ParsedDataUpdate(BaseModel):
     skills: Optional[list[str]] = None
     seniority: Optional[Seniority] = None
@@ -57,6 +61,7 @@ class UserRead(BaseModel):
     resume_url: Optional[str] = None
     is_whitelisted: bool = False
     is_paid: bool = False
+    scraping_enabled: bool = True
     trial_expired: bool = False
     trial_expires_at: Optional[datetime] = None
     parsed_data: Optional[ParsedData] = None

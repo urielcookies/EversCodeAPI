@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from urllib.parse import urlparse
 
 from core.config import settings
 from core.database import get_db
 from apps.ever_apply.models import User
-from apps.ever_apply.schemas import UserRead, UserPreferenceRead, UserPreferencesUpdate, ParsedDataUpdate
+from apps.ever_apply.schemas import UserRead, UserPreferenceRead, UserPreferencesUpdate, ParsedDataUpdate, UserUpdate
 from apps.ever_apply.services.clerk import get_current_clerk_user
 from apps.ever_apply.services.resume import upload_resume, delete_resume, extract_text, parse_resume
 from apps.ever_apply.services.ats_resume import _r2_client
@@ -78,6 +78,29 @@ async def update_preferences(
     await db.commit()
     await db.refresh(user)
     return UserPreferenceRead(**user.preferences)
+
+
+# PATCH /users/me
+@router.patch("/me", response_model=UserRead)
+async def update_user(
+    body: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    clerk_user: dict = Depends(get_current_clerk_user),
+):
+    result = await db.execute(
+        select(User).where(User.clerk_user_id == clerk_user["sub"])
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    updates = body.model_dump(exclude_unset=True)
+    if updates:
+        await db.execute(update(User).where(User.clerk_user_id == clerk_user["sub"]).values(**updates))
+        await db.commit()
+        await db.refresh(user)
+
+    return user
 
 
 # PATCH /users/me/parsed-data

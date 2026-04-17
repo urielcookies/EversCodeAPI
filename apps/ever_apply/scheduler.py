@@ -98,6 +98,9 @@ async def fetch_and_score():
             total_jobs = 0
             matched = 0
             for user in users:
+                if not user.scraping_enabled:
+                    logger.info(f"fetch_and_score: skipping user {user.id} — scraping disabled")
+                    continue
                 if not _is_eligible(user):
                     logger.info(f"fetch_and_score: skipping user {user.id} — trial expired")
                     continue

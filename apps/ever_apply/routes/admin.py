@@ -85,6 +85,8 @@ async def trigger_fetch(db: AsyncSession = Depends(get_db)):
     total_jobs = 0
     matched = 0
     for user in users:
+        if not user.scraping_enabled:
+            continue
         if not _is_eligible(user):
             continue
 
@@ -180,6 +182,8 @@ async def trigger_score(db: AsyncSession = Depends(get_db)):
     matched = 0
     scored = 0
     for user in users:
+        if not user.scraping_enabled:
+            continue
         if not _is_eligible(user):
             continue
 
