@@ -28,9 +28,11 @@ class UserPreferenceRead(BaseModel):
     remote_type: Optional[RemoteType] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
+    salary_enabled: bool = False
     preferred_location: Optional[str] = None
     radius_miles: Optional[RadiusMiles] = None
     exclude_clearance: bool = False
+    min_match_score: Optional[int] = None
 
 
 class UserUpdate(BaseModel):
@@ -49,9 +51,11 @@ class UserPreferencesUpdate(BaseModel):
     remote_type: Optional[RemoteType] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
+    salary_enabled: Optional[bool] = None
     preferred_location: Optional[str] = None
     radius_miles: Optional[RadiusMiles] = None
     exclude_clearance: Optional[bool] = None
+    min_match_score: Optional[int] = None
 
 
 class UserRead(BaseModel):
